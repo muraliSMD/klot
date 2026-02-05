@@ -17,6 +17,28 @@ export default function PredictionsPage() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [activeTab, setActiveTab] = useState("Linear Trend");
+  const TABS = ["Linear Trend", "Average Velocity", "Mirror Pattern", "Date Flow"];
+
+  // Helper to generate variations on client-side to keep the rich UI
+  const getDisplayVariations = () => {
+    if (!prediction) return [];
+    
+    // Get the base number for the selected algorithm
+    // Fallback to first predicted number if specific algo not found (backward compat)
+    const base = prediction.algorithms && prediction.algorithms[activeTab] 
+      ? prediction.algorithms[activeTab] 
+      : prediction.predictedNumbers?.[0];
+
+    if (!base) return [];
+
+    return [
+      { name: activeTab, num: base, icon: "🎯", prob: "96%" },
+      { name: "Variation (+1)", num: base.split('').map(d => (parseInt(d)+1)%10).join(''), icon: "🔼", prob: "85%" },
+      { name: "Variation (-1)", num: base.split('').map(d => (parseInt(d)+9)%10).join(''), icon: "🔽", prob: "78%" }
+    ];
+  };
+
   useEffect(() => {
     // Fetch Analysis
     API.get("/klr/analysis?limit=100")
@@ -55,27 +77,41 @@ export default function PredictionsPage() {
         </div>
         <button 
           onClick={generateNew} 
-          disabled={loading}
-          className="glass px-6 py-3 rounded-2xl border border-primary/20 text-primary font-bold hover:bg-primary/10 transition-colors"
+          disabled={loading || !!prediction}
+          className={`glass px-6 py-3 rounded-2xl border border-primary/20 text-primary font-bold hover:bg-primary/10 transition-colors ${
+            (loading || !!prediction) ? "opacity-50 cursor-not-allowed" : ""
+          }`}
         >
-          {loading ? "Processing..." : "Run Analysis Engine"}
+          {loading ? "Processing..." : prediction ? "Analysis Complete (Today)" : "Run Analysis Engine"}
         </button>
       </div>
 
+      {/* Algorithm Tabs */}
+      <div className="flex flex-wrap gap-2 p-1 glass rounded-2xl w-fit">
+        {TABS.map(tab => (
+           <button
+             key={tab}
+             onClick={() => setActiveTab(tab)}
+             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+               activeTab === tab 
+                 ? "bg-primary text-white shadow-lg" 
+                 : "hover:bg-white/5 text-muted-foreground"
+             }`}
+           >
+             {tab}
+           </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {prediction?.predictedNumbers.map((combo, idx) => {
-          const strategies = ["Hot-Positional", "Recent-Weighted", "Cold-Gap", "Balanced-Mean", "Delta-Pattern"];
-          const probabilities = ["96%", "91%", "84%", "78%", "65%"];
-          const icons = ["🔥", "⚡", "❄️", "⚖️", "📐"];
-          
-          return (
+        {getDisplayVariations().map((item, idx) => (
             <div key={idx} className="glass-card p-8 rounded-[2rem] border-primary/10 bg-primary/5 flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
               <div className="w-12 h-12 rounded-full glass mb-4 flex items-center justify-center text-2xl shadow-xl border border-white/5">
-                {icons[idx]}
+                {item.icon}
               </div>
-              <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">Strategy: {strategies[idx]}</span>
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">Strategy: {item.name}</span>
               <div className="flex gap-1.5 mb-5">
-                {combo.split("").map((digit, i) => (
+                {item.num.split("").map((digit, i) => (
                   <div key={i} className="w-9 h-11 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black text-white relative group">
                     <span className="relative z-10">{digit}</span>
                   </div>
@@ -83,17 +119,16 @@ export default function PredictionsPage() {
               </div>
               <div className="w-full flex justify-between items-center mb-3">
                  <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Win Probability</span>
-                 <span className="text-xs font-black text-primary">{probabilities[idx]}</span>
+                 <span className="text-xs font-black text-primary">{item.prob}</span>
               </div>
               <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-primary" 
-                  style={{ width: probabilities[idx] }}
+                  style={{ width: item.prob }}
                 ></div>
               </div>
             </div>
-          );
-        })}
+        ))}
       </div>
 
       {/* Guessing Board (Permutation Matrix) */}

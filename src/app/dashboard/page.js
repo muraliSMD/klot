@@ -37,7 +37,9 @@ export default function DashboardPage() {
 
     API.get("/klr/check-today")
       .then(res => {
-        if (res.data.data) setPrediction(res.data.data);
+        if (res.data.data) {
+             setPrediction({ ...res.data.data, trend: res.data.trend });
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -164,20 +166,28 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="glass-card p-8 rounded-[2rem]">
-          <h3 className="text-lg font-bold mb-4 font-outfit">Recent Patterns</h3>
+          <h3 className="text-lg font-bold mb-4 font-outfit">Recent Patterns (Live Trend)</h3>
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-4 glass rounded-2xl border-white/5 group hover:border-primary/20 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs">{i}</div>
-                  <div>
-                    <div className="font-bold">Repeating Pair Discovery</div>
-                    <div className="text-xs text-muted-foreground">Detected across last 50 draws</div>
+            {prediction && prediction.trend ? (
+               prediction.trend.map((shift, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 glass rounded-2xl border-white/5 group hover:border-primary/20 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs text-muted-foreground">Pos {i+1}</div>
+                      <div>
+                        <div className="font-bold">Digit Shift</div>
+                        <div className="text-xs text-muted-foreground">Historical movement</div>
+                      </div>
+                    </div>
+                    <div className={`font-black text-xl ${shift === 0 ? "text-muted-foreground" : "text-primary"}`}>
+                       {shift > 0 ? `+${shift}` : shift}
+                    </div>
                   </div>
+               ))
+            ) : (
+                <div className="text-center text-muted-foreground py-10">
+                   {loading ? "Analyzing trends..." : "No trend data available."}
                 </div>
-                <div className="text-primary font-black">92%</div>
-              </div>
-            ))}
+            )}
           </div>
         </div>
         <div className="glass-card p-8 rounded-[2rem] bg-primary/5 border-primary/10">

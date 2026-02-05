@@ -15,6 +15,11 @@ const PredictionSchema = new mongoose.Schema(
       type: [String], // Store 4-digit permutations
       required: false,
     },
+    algorithms: {
+      type: Map,
+      of: String,
+      required: false, // Optional for backward compatibility
+    },
   },
   { timestamps: true }
 );

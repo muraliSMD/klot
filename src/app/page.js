@@ -35,7 +35,7 @@ export default function LandingPage() {
       // The API returns { items: [...] } or just [...]
       const list = res.data.items || res.data;
       if (Array.isArray(list)) {
-        setHistory(list.slice(0, 10));
+        setHistory(list);
       }
     }).catch(console.error);
     
@@ -169,9 +169,9 @@ export default function LandingPage() {
         <div className="glass-card p-8 rounded-3xl h-[500px] overflow-hidden flex flex-col">
           <h3 className="text-2xl font-bold mb-6 font-outfit flex items-center gap-2">
             <span>Past Results</span>
-            <span className="text-xs bg-white/10 px-2 py-1 rounded text-muted-foreground font-normal">Last 10</span>
+            <span className="text-xs bg-white/10 px-2 py-1 rounded text-muted-foreground font-normal">Full History</span>
           </h3>
-          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-3">
             {history.length > 0 ? (
               history.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-4 glass rounded-2xl hover:bg-white/5 transition-colors">
