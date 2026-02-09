@@ -5,6 +5,10 @@ import API from "@/app/lib/api";
 export default function HistoryPage() {
   const [history, setHistory] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Filtering states
+  const [filterName, setFilterName] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     API.get("/klr/history")
@@ -20,6 +24,22 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Extract unique lottery names for filter dropdown
+  const uniqueNames = history 
+    ? ["All", ...new Set(history.map(item => item.name || item.draw_name || "Unknown").filter(Boolean))]
+    : ["All"];
+
+  // Filtered data
+  const filteredHistory = history?.filter(item => {
+    const name = item.name || item.draw_name || "Unknown";
+    const date = item.date || item.draw_date || "";
+    
+    const matchesName = filterName === "All" || name === filterName;
+    const matchesSearch = date.includes(searchTerm) || name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesName && matchesSearch;
+  });
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -34,13 +54,27 @@ export default function HistoryPage() {
       </div>
 
       <div className="glass-card overflow-hidden rounded-[2.5rem]">
-        <div className="p-8 border-b border-white/5 flex items-center justify-between">
+        <div className="p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-bold font-outfit">Historical Records</h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Lottery Name Filter */}
+            <select
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50 transition-colors text-white [&>option]:text-black"
+            >
+                {uniqueNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                ))}
+            </select>
+
+            {/* Date Search */}
             <input 
               type="text" 
-              placeholder="Search date..." 
-              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50 transition-colors"
+              placeholder="Search date or name..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50 transition-colors text-white placeholder:text-muted-foreground"
             />
           </div>
         </div>
@@ -61,11 +95,11 @@ export default function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {history?.map((draw, index) => (
+                {filteredHistory?.map((draw, index) => (
                   <tr key={index} className="border-t border-white/5 hover:bg-white/5 transition-colors group">
                     <td className="p-6">
                       <div className="font-bold font-outfit group-hover:text-primary transition-colors">
-                        {draw.name || draw.lottery_name || "Kerala State Lottery"}
+                        {draw.name || draw.draw_name || "Kerala State Lottery"}
                       </div>
                     </td>
                     <td className="p-6 text-muted-foreground font-medium">
@@ -83,10 +117,10 @@ export default function HistoryPage() {
                     </td>
                   </tr>
                 ))}
-                {history?.length === 0 && (
+                {filteredHistory?.length === 0 && (
                   <tr>
                     <td colSpan="4" className="p-20 text-center text-muted-foreground font-bold">
-                      No lottery history found in the database.
+                      {history?.length === 0 ? "No lottery history found." : "No matches found for your filter."}
                     </td>
                   </tr>
                 )}

@@ -38,7 +38,9 @@ export default function DashboardPage() {
     API.get("/klr/check-today")
       .then(res => {
         if (res.data.data) {
-             setPrediction({ ...res.data.data, trend: res.data.trend });
+          setPrediction({ ...res.data.data, trend: res.data.trend });
+        } else if (res.data.disabled) {
+          setPrediction({ disabled: true, message: res.data.message });
         }
       })
       .catch(console.error)
@@ -140,26 +142,39 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold font-outfit text-primary">Live Prediction</h3>
-              <span className="text-[10px] px-2 py-0.5 bg-primary/20 text-primary rounded-full font-black animate-pulse">ACTIVE</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${prediction?.disabled ? "bg-red-500/20 text-red-500" : "bg-primary/20 text-primary animate-pulse"}`}>
+                {prediction?.disabled ? "CLOSED" : "ACTIVE"}
+              </span>
             </div>
             {prediction ? (
-              <div className="space-y-4">
-                <div className="flex gap-2 justify-center">
-                  {prediction.predictedNumbers[0].split("").map((d, i) => (
-                    <div key={i} className="w-8 h-10 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black">{d}</div>
-                  ))}
+              prediction.disabled ? (
+                <div className="text-center py-4">
+                  <p className="text-xs text-muted-foreground">Service available 11AM - 1PM IST</p>
                 </div>
-                <div className="text-center text-xs text-muted-foreground italic">Strategy: Hot-Positional</div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-2 justify-center">
+                    {prediction.predictedNumbers[0].split("").map((d, i) => (
+                      <div key={i} className="w-8 h-10 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black">{d}</div>
+                    ))}
+                  </div>
+                  <div className="text-center text-xs text-muted-foreground italic">Strategy: Hot-Positional</div>
+                </div>
+              )
             ) : (
               <div className="p-8 text-center text-muted-foreground text-sm">Generating new ensemble...</div>
             )}
           </div>
           <button 
+            disabled={prediction?.disabled}
             onClick={() => router.push("/dashboard/predict")}
-            className="w-full mt-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform shadow-xl shadow-primary/20"
+            className={`w-full mt-6 py-3 rounded-xl font-bold text-sm transition-transform shadow-xl ${
+              prediction?.disabled 
+                ? "bg-white/5 text-muted-foreground cursor-not-allowed" 
+                : "bg-primary text-primary-foreground hover:scale-[1.02] shadow-primary/20"
+            }`}
           >
-            Go to Predict Center
+            {prediction?.disabled ? "Service Closed" : "Go to Predict Center"}
           </button>
         </div>
       </div>
@@ -196,10 +211,15 @@ export default function DashboardPage() {
             Based on current digit frequencies, we're seeing an unusual clustering around the digit <span className="text-primary font-bold">{stats.topDigit}</span>. This trend often precedes a shift in number distribution patterns.
           </p>
           <button 
+            disabled={prediction?.disabled}
             onClick={() => router.push("/dashboard/predict")}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:scale-102 transition-transform shadow-xl shadow-primary/20"
+            className={`w-full py-3 rounded-xl font-bold text-sm transition-transform shadow-xl ${
+              prediction?.disabled 
+                ? "bg-white/5 text-muted-foreground cursor-not-allowed" 
+                : "bg-primary text-primary-foreground hover:scale-102 shadow-primary/20"
+            }`}
           >
-            Generate New Prediction
+            {prediction?.disabled ? "Service Closed" : "Generate New Prediction"}
           </button>
         </div>
       </div>

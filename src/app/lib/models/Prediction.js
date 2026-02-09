@@ -20,6 +20,39 @@ const PredictionSchema = new mongoose.Schema(
       of: String,
       required: false, // Optional for backward compatibility
     },
+    threeDigit: {
+      type: Map,
+      of: String,
+      required: false
+    },
+    poolAnalysis: {
+      sum: Number,
+      zone: Number,
+      hotStats: [[String]], // Array of arrays of strings
+      matrix: [String]
+    },
+    lotteryName: {
+      type: String,
+      required: false,
+    },
+    yesterdayPrediction: {
+        predictedNumbers: [String],
+        guessingBoard: [String],
+        algorithms: {
+            type: Map,
+            of: String
+        },
+        threeDigit: {
+            type: Map,
+            of: String
+        },
+        poolAnalysis: {
+            sum: Number,
+            zone: Number,
+            hotStats: [[String]],
+            matrix: [String]
+        }
+    }
   },
   { timestamps: true }
 );
