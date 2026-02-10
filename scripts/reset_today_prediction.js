@@ -1,3 +1,5 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 
 // Define Schema Inline to avoid module issues
@@ -11,7 +13,7 @@ const PredictionSchema = new mongoose.Schema(
     poolAnalysis: {
       sum: Number,
       zone: Number,
-      hotStats: [[String]], 
+    hotStats: [[String]], 
       matrix: [String]
     },
     lotteryName: { type: String, required: false },
@@ -33,9 +35,12 @@ const PredictionSchema = new mongoose.Schema(
 
 const Prediction = mongoose.models.Prediction || mongoose.model("Prediction", PredictionSchema);
 
-// Connection String (Hardcoded for script as env might be tricky in raw node without dotenv setup)
-// Using standard local mongo URI if not provided
-const MONGODB_URI = "mongodb+srv://billing:Bill%401234@cluster0.eqb4ccq.mongodb.net/karlot?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGO_URI;
+
+if (!MONGODB_URI) {
+  console.error("Please define the MONGO_URI environment variable inside .env");
+  process.exit(1);
+}
 
 async function resetPrediction() {
   try {

@@ -21,8 +21,7 @@ const PredictionSchema = new mongoose.Schema(
       required: false, // Optional for backward compatibility
     },
     threeDigit: {
-      type: Map,
-      of: String,
+      type: mongoose.Schema.Types.Mixed, // Use Mixed type to store any object structure
       required: false
     },
     poolAnalysis: {

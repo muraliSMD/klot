@@ -104,6 +104,17 @@ export async function POST() {
         const deltaPattern = [3, 0, 4, 9, 4, 6];
         const algo5 = applyShift(numericPart, deltaPattern);
 
+        const last3 = numericPart.slice(-3); // Define last3 for analysis
+
+        // 3-Digit Logic Implementation
+        const digitArray = last3.split('').map(Number);
+        
+        const algo3D_1 = last3; // Direct
+        const algo3D_2 = last3.split('').reverse().join(''); // Reverse
+        const algo3D_3 = digitArray.map(d => 9 - d).join(''); // Complement (9-x)
+        const algo3D_4 = digitArray.map(d => (d + 1) % 10).join(''); // Shift +1
+        const algo3D_5 = digitArray.map(d => (d - 1 + 10) % 10).join(''); // Shift -1
+
         return {
             predictedNumbers: [algo1, algo2, algo3, algo4, algo5],
             algorithms: {
@@ -217,6 +228,7 @@ export async function POST() {
         predictedNumbers: historyPrediction.predictedNumbers,
         guessingBoard: historyPrediction.guessingBoard,
         algorithms: historyPrediction.algorithms,
+        threeDigit: historyPrediction.threeDigit, // Pass the 3-digit data
         lotteryName: targetLottery,
         yesterdayPrediction: yesterdayPredictionData ? {
             predictedNumbers: yesterdayPredictionData.predictedNumbers,
