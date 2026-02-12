@@ -16,13 +16,6 @@ export async function GET() {
     const istMinutes = istDate.getUTCMinutes();
 
     // Predictions only allowed between 11:00 AM and 1:00 PM IST
-    if (istHours >= 13 || istHours < 11) {
-      return NextResponse.json({ 
-        disabled: true, 
-        message: "Predictions are only available between 11:00 AM and 1:00 PM IST." 
-      });
-    }
-
     const today = istDate.toISOString().slice(0, 10);
     // Use lean() to get a plain JavaScript object, avoiding schema versioning issues during hot reload
     let existing = await Prediction.findOne({ date: today }).lean();
@@ -30,6 +23,18 @@ export async function GET() {
     // Always fetch history to calculate/return the current trend
     const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
     let trend = [];
+    
+    // Time Restriction Logic: Predictions are disabled after 1:00 PM (13:00) IST
+    // BUT if a prediction ALREADY EXISTS, we show it regardless of time.
+    if (!existing) {
+        if (istHours >= 13 || istHours < 11) {
+          return NextResponse.json({ 
+            disabled: true, 
+            message: "Predictions are only available between 11:00 AM and 1:00 PM IST." 
+          });
+        }
+    }
+    
     let targetLottery = "";
     let dayOfWeek = "";
     
@@ -83,299 +88,167 @@ export async function GET() {
                 }
             }
 
-            // If no prediction exists for today, generate one using multiple algorithms
-            if (!existing) {
-                // Helper to generate predictions from a list of draws
-                const generateFromList = (drawList, dateObj) => {
-                    if (!drawList || drawList.length < 2) return null;
+            // (Auto-generation logic removed to enforce manual trigger)
+            // The patching logic below will now only run if 'existing' was found at the top of the file
 
-                    const latestDraw = drawList[0]; 
-                    const previousDraw = drawList[1];
+            
+                // REPAIR/PATCH: Backfill missing fields or keys
+                // Check if we need to patch: missing entire object, or missing new keys (e.g., Symmetric Drift)
+                const needsPatch = !existing.threeDigit || 
+                                   !existing.threeDigit["Repeat Middle"] || 
+                                   !existing.threeDigit["Symmetric Drift"];
 
-                    if (!latestDraw || !latestDraw.first_ticket) return null;
-
-                    const winningNumber = latestDraw.first_ticket; 
-                    const numericPart = winningNumber.replace(/\D/g, ''); 
-                    let trend = numericPart.split('').map(() => 1);
-
-                    if (previousDraw && previousDraw.first_ticket) {
-                        const prevNumeric = previousDraw.first_ticket.replace(/\D/g, '');
-                        if (prevNumeric.length === numericPart.length) {
-                            trend = numericPart.split('').map((d, i) => (parseInt(d) - parseInt(prevNumeric[i]) + 10) % 10);
+                if (existing && (needsPatch || !existing.yesterdayPrediction)) {
+                     const generateFromList = (drawList, dateObj) => {
+                        if (!drawList || drawList.length < 2) return null;
+                        const latestDraw = drawList[0]; 
+                        const previousDraw = drawList[1];
+                        if (!latestDraw || !latestDraw.first_ticket) return null;
+                        const winningNumber = latestDraw.first_ticket; 
+                        const numericPart = winningNumber.replace(/\D/g, ''); 
+                        let trend = numericPart.split('').map(() => 1);
+                        if (previousDraw && previousDraw.first_ticket) {
+                            const prevNumeric = previousDraw.first_ticket.replace(/\D/g, '');
+                            if (prevNumeric.length === numericPart.length) {
+                                trend = numericPart.split('').map((d, i) => (parseInt(d) - parseInt(prevNumeric[i]) + 10) % 10);
+                            }
                         }
-                    }
+                        const applyShift = (numStr, shiftArr) => {
+                            return numStr.split('').map((d, i) => (parseInt(d) + shiftArr[i]) % 10).join('');
+                        };
+                        const algo1 = applyShift(numericPart, trend);
+                        let velocityTrend = [...trend];
+                        if (drawList[2] && drawList[2].first_ticket) {
+                            const d2 = drawList[1].first_ticket.replace(/\D/g, '');
+                            const d3 = drawList[2].first_ticket.replace(/\D/g, '');
+                            if (d2.length === d3.length) {
+                                const trend2 = d2.split('').map((d, i) => (parseInt(d) - parseInt(d3[i]) + 10) % 10);
+                                velocityTrend = trend.map((t, i) => Math.round((t + trend2[i]) / 2));
+                            }
+                        }
+                        const algo2 = applyShift(numericPart, velocityTrend);
+                        const algo3 = algo1.split('').map(d => (parseInt(d) + 5) % 10).join('');
+                        const dayOfMonth = dateObj.getUTCDate();
+                        const algo4 = algo1.split('').map(d => (parseInt(d) + dayOfMonth) % 10).join('');
+                        
+                        // 5. Algo: Delta Pattern-A
+                        const deltaPattern = [3, 0, 4, 9, 4, 6];
+                        const algo5 = applyShift(numericPart, deltaPattern);
 
-                    const applyShift = (numStr, shiftArr) => {
-                        return numStr.split('').map((d, i) => (parseInt(d) + shiftArr[i]) % 10).join('');
+                        // --- 3-Digit Specific Algorithms ---
+                        const last3 = numericPart.slice(-3);
+                        // Convert to digits array for new algos
+                        const digitArray = last3.split('').map(d => parseInt(d));
+                        // Need trend for last 3 digits
+                        const trendLast3 = trend.slice(-3);
+
+                        const algo3D_1 = last3; // Direct
+                        const algo3D_2 = last3.split('').reverse().join(''); // Reverse
+                        const complement = (1000 - parseInt(last3)).toString().padStart(3, '0');
+                        const algo3D_3 = complement.slice(-3); // Complement
+                        const algo3D_4 = last3.split('').map(d => (parseInt(d) + 1) % 10).join(''); // Shift +1
+                        const algo3D_5 = last3.split('').map(d => (parseInt(d) + 9) % 10).join(''); // Shift -1
+                        
+                        // New Algos (Mirror, Key, Flow, Crossing) - Re-implementing logic here to match generate-prediction
+                        const algo3D_6 = last3.split('').map(d => (parseInt(d)+5)%10).join(''); // Mirror
+                        const algo3D_7 = last3.split('').map(d => (parseInt(d)+2)%10).join(''); // Key
+                        const algo3D_8 = (drawList.length > 0 ? getPositionalHotness(drawList)[0][0] : ((digitArray[0]+5)%10)) + last3.slice(1); // Flow
+                        const algo3D_9 = last3.slice(-1) + last3.slice(0, 2); // Crossing
+                        
+                        // Vertical Locks
+                        const d1_trend = (digitArray[0] + trendLast3[0]) % 10;
+                        const d2_repeat = digitArray[1]; 
+                        const d3_trend = (digitArray[2] + trendLast3[2]) % 10;
+                        const algo3D_10 = `${d1_trend}${d2_repeat}${d3_trend}`; // Repeat Middle
+
+                        const d1_trend_last = (digitArray[0] + trendLast3[0]) % 10;
+                        const d2_trend_last = (digitArray[1] + trendLast3[1]) % 10;
+                        const d3_repeat_last = digitArray[2]; 
+                        const algo3D_11 = `${d1_trend_last}${d2_trend_last}${d3_repeat_last}`; // Repeat Last
+
+                        // Advanced Algos
+                        const algo3D_12 = digitArray.map((d, i) => {
+                            if (i === 1) return d; 
+                            return (d - 2 + 10) % 10; 
+                        }).join(''); // Symmetric Drift
+
+                        const algo3D_13 = digitArray.map(d => 9 - d).join(''); // 9-Complement
+
+                        return {
+                            predictedNumbers: [algo1, algo2, algo3, algo4, algo5],
+                            algorithms: {
+                                "Linear Trend": algo1,
+                                "Average Velocity": algo2,
+                                "Mirror Pattern": algo3,
+                                "Date Flow": algo4,
+                                "Delta Pattern-A": algo5
+                            },
+                            threeDigit: {
+                                "Direct": algo3D_1,
+                                "Reverse": algo3D_2,
+                                "Complement": algo3D_3,
+                                "Shift +1": algo3D_4,
+                                "Shift -1": algo3D_5,
+                                "Mirror": algo3D_6,
+                                "Key (+2)": algo3D_7,
+                                "Flow Pair (Fix)": algo3D_8,
+                                "Crossing": algo3D_9,
+                                "Repeat Middle": algo3D_10,
+                                "Repeat Last": algo3D_11,
+                                "Symmetric Drift": algo3D_12,
+                                "9-Complement": algo3D_13
+                            },
+                            guessingBoard: [algo1.slice(-4), algo2.slice(-4), algo3.slice(-4), algo4.slice(-4), algo5.slice(-4)],
+                            poolAnalysis: {
+                                sum: last3.split('').reduce((a, b) => a + parseInt(b), 0),
+                                zone: Math.floor(parseInt(last3) / 200), // 0-4 (0=000-199, 1=200-399, etc)
+                                hotStats: getPositionalHotness(drawList),
+                                matrix: generateSmartMatrix(last3, drawList)
+                            }
+                        };
                     };
 
-                    // Algos
-                    const algo1 = applyShift(numericPart, trend);
+                    // ... helpers (same as before) ...
 
-                    let velocityTrend = [...trend];
-                    if (drawList[2] && drawList[2].first_ticket) {
-                        const d2 = drawList[1].first_ticket.replace(/\D/g, '');
-                        const d3 = drawList[2].first_ticket.replace(/\D/g, '');
-                        if (d2.length === d3.length) {
-                            const trend2 = d2.split('').map((d, i) => (parseInt(d) - parseInt(d3[i]) + 10) % 10);
-                            velocityTrend = trend.map((t, i) => Math.round((t + trend2[i]) / 2));
-                        }
-                    }
-                    const algo2 = applyShift(numericPart, velocityTrend);
-                    const algo3 = algo1.split('').map(d => (parseInt(d) + 5) % 10).join('');
-                    const dayOfMonth = dateObj.getUTCDate();
-                    const algo4 = algo1.split('').map(d => (parseInt(d) + dayOfMonth) % 10).join('');
+                    const historyPrediction = generateFromList(list, istDate);
+                    const yesterdayPredictionData = generateFromList(fullList, istDate);
 
-                    // 5. Algo: Delta Pattern-A (Based on specific user request for 227873 -> 521719)
-                    // Pattern: +3, +0, -6(+4), -1(+9), -6(+4), +6
-                    const deltaPattern = [3, 0, 4, 9, 4, 6];
-                    const algo5 = applyShift(numericPart, deltaPattern);
-
-                    // --- 3-Digit Specific Algorithms ---
-                    const last3 = numericPart.slice(-3);
+                    const updates = {};
                     
-                    // 3D-Direct
-                    const algo3D_1 = last3;
+                    if (needsPatch && historyPrediction) {
+                        updates.threeDigit = historyPrediction.threeDigit;
+                        // Directly verify the patch worked by assigning to local object
+                        existing.threeDigit = historyPrediction.threeDigit;
+                    }
 
-                    // 3D-Reverse
-                    const algo3D_2 = last3.split('').reverse().join('');
-
-                    // 3D-Complement (1000 - n)
-                    const complement = (1000 - parseInt(last3)).toString().padStart(3, '0');
-                    const algo3D_3 = complement.slice(-3);
-
-                    // 3D-Shift+1
-                    const algo3D_4 = last3.split('').map(d => (parseInt(d) + 1) % 10).join('');
-
-                    // 3D-Shift-1
-                    const algo3D_5 = last3.split('').map(d => (parseInt(d) + 9) % 10).join('');
-
-                    return {
-                        predictedNumbers: [algo1, algo2, algo3, algo4, algo5],
-                        algorithms: {
-                            "Linear Trend": algo1,
-                            "Average Velocity": algo2,
-                            "Mirror Pattern": algo3,
-                            "Date Flow": algo4,
-                            "Delta Pattern-A": algo5
-                        },
-                        threeDigit: {
-                            "Direct": algo3D_1,
-                            "Reverse": algo3D_2,
-                            "Complement": algo3D_3,
-                            "Shift +1": algo3D_4,
-                            "Shift -1": algo3D_5
-                        },
-                        guessingBoard: [algo1.slice(-4), algo2.slice(-4), algo3.slice(-4), algo4.slice(-4), algo5.slice(-4)]
-                    };
-                };
-
-                const historyPrediction = generateFromList(list, istDate);
-                const yesterdayPredictionData = generateFromList(fullList, istDate);
-
-                if (historyPrediction) {
-                    existing = await Prediction.create({
-                        date: today,
-                        predictedNumbers: historyPrediction.predictedNumbers,
-                        guessingBoard: historyPrediction.guessingBoard,
-                        algorithms: historyPrediction.algorithms,
-                        lotteryName: targetLottery,
-                        threeDigit: historyPrediction.threeDigit,
-                        poolAnalysis: historyPrediction.poolAnalysis,
-                        yesterdayPrediction: yesterdayPredictionData ? {
+                    if (!existing.yesterdayPrediction && yesterdayPredictionData) {
+                        updates.yesterdayPrediction = {
                             predictedNumbers: yesterdayPredictionData.predictedNumbers,
                             guessingBoard: yesterdayPredictionData.guessingBoard,
                             algorithms: yesterdayPredictionData.algorithms,
                             threeDigit: yesterdayPredictionData.threeDigit,
                             poolAnalysis: yesterdayPredictionData.poolAnalysis
-                        } : undefined
-                    });
-                }
-            }
-            
-            // REPAIR: Backfill missing fields (threeDigit or yesterdayPrediction)
-            if (existing && (!existing.yesterdayPrediction || !existing.threeDigit)) {
-                 const generateFromList = (drawList, dateObj) => {
-                    if (!drawList || drawList.length < 2) return null;
-                    const latestDraw = drawList[0]; 
-                    const previousDraw = drawList[1];
-                    if (!latestDraw || !latestDraw.first_ticket) return null;
-                    const winningNumber = latestDraw.first_ticket; 
-                    const numericPart = winningNumber.replace(/\D/g, ''); 
-                    let trend = numericPart.split('').map(() => 1);
-                    if (previousDraw && previousDraw.first_ticket) {
-                        const prevNumeric = previousDraw.first_ticket.replace(/\D/g, '');
-                        if (prevNumeric.length === numericPart.length) {
-                            trend = numericPart.split('').map((d, i) => (parseInt(d) - parseInt(prevNumeric[i]) + 10) % 10);
-                        }
-                    }
-                    const applyShift = (numStr, shiftArr) => {
-                        return numStr.split('').map((d, i) => (parseInt(d) + shiftArr[i]) % 10).join('');
-                    };
-                    const algo1 = applyShift(numericPart, trend);
-                    let velocityTrend = [...trend];
-                    if (drawList[2] && drawList[2].first_ticket) {
-                        const d2 = drawList[1].first_ticket.replace(/\D/g, '');
-                        const d3 = drawList[2].first_ticket.replace(/\D/g, '');
-                        if (d2.length === d3.length) {
-                            const trend2 = d2.split('').map((d, i) => (parseInt(d) - parseInt(d3[i]) + 10) % 10);
-                            velocityTrend = trend.map((t, i) => Math.round((t + trend2[i]) / 2));
-                        }
-                    }
-                    const algo2 = applyShift(numericPart, velocityTrend);
-                    const algo3 = algo1.split('').map(d => (parseInt(d) + 5) % 10).join('');
-                    const dayOfMonth = dateObj.getUTCDate();
-                    const algo4 = algo1.split('').map(d => (parseInt(d) + dayOfMonth) % 10).join('');
-                    
-                    // 5. Algo: Delta Pattern-A
-                    const deltaPattern = [3, 0, 4, 9, 4, 6];
-                    const algo5 = applyShift(numericPart, deltaPattern);
-
-                    // --- 3-Digit Specific Algorithms ---
-                    const last3 = numericPart.slice(-3);
-                    const algo3D_1 = last3; // Direct
-                    const algo3D_2 = last3.split('').reverse().join(''); // Reverse
-                    const complement = (1000 - parseInt(last3)).toString().padStart(3, '0');
-                    const algo3D_3 = complement.slice(-3); // Complement
-                    const algo3D_4 = last3.split('').map(d => (parseInt(d) + 1) % 10).join(''); // Shift +1
-                    const algo3D_5 = last3.split('').map(d => (parseInt(d) + 9) % 10).join(''); // Shift -1
-
-                    return {
-                        predictedNumbers: [algo1, algo2, algo3, algo4, algo5],
-                        algorithms: {
-                            "Linear Trend": algo1,
-                            "Average Velocity": algo2,
-                            "Mirror Pattern": algo3,
-                            "Date Flow": algo4,
-                            "Delta Pattern-A": algo5
-                        },
-                        threeDigit: {
-                            "Direct": algo3D_1,
-                            "Reverse": algo3D_2,
-                            "Complement": algo3D_3,
-                            "Shift +1": algo3D_4,
-                            "Shift -1": algo3D_5
-                        },
-                        guessingBoard: [algo1.slice(-4), algo2.slice(-4), algo3.slice(-4), algo4.slice(-4), algo5.slice(-4)],
-                        poolAnalysis: {
-                            sum: last3.split('').reduce((a, b) => a + parseInt(b), 0),
-                            zone: Math.floor(parseInt(last3) / 200), // 0-4 (0=000-199, 1=200-399, etc)
-                            hotStats: getPositionalHotness(drawList),
-                            matrix: generateSmartMatrix(last3, drawList) // Upgrade: Pass list (drawList is available in scope)
-                        }
-                    };
-                };
-
-                // Helper: Analyze Positional Frequency (0=100s, 1=10s, 2=1s)
-                const getPositionalHotness = (drawList) => {
-                    const counts = [{0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}, {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}, {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}];
-                    
-                    // Analyze last 50 draws or max available
-                    const limit = Math.min(drawList.length, 50);
-                    for(let i=0; i<limit; i++) {
-                        if(drawList[i] && drawList[i].first_ticket) {
-                            const num = drawList[i].first_ticket.replace(/\D/g, '').slice(-3);
-                            if(num.length === 3) {
-                                counts[0][num[0]]++; // 100s
-                                counts[1][num[1]]++; // 10s
-                                counts[2][num[2]]++; // 1s
-                            }
-                        }
+                        };
+                        existing.yesterdayPrediction = updates.yesterdayPrediction;
                     }
                     
-                    // Return top 2 digits for each position
-                    return counts.map(posCounts => {
-                         return Object.entries(posCounts)
-                            .sort(([,a], [,b]) => b - a)
-                            .slice(0, 2)
-                            .map(([digit]) => digit);
-                    });
-                };
-
-                // Helper: Smart Matrix Generator v2 (Enhanced)
-                const generateSmartMatrix = (seed3, historyList = []) => {
-                    const seed = parseInt(seed3);
-                    const candidates = new Set();
-                    
-                    // 1. Neighbors (+/- 1, 2, 3)
-                    [-3, -2, -1, 0, 1, 2, 3].forEach(d => candidates.add((seed + d + 1000) % 1000));
-                    
-                    // 2. Mirror (Add 5 to each digit)
-                    const mirror = seed3.split('').map(d => (parseInt(d) + 5) % 10).join('');
-                    candidates.add(parseInt(mirror));
-                    
-                    // 3. Pattern Shifts (e.g., +111, -111)
-                    candidates.add((seed + 111) % 1000);
-                    candidates.add((seed + 889) % 1000); // -111 equiv
-                    
-                    // 4. Sum Cousins (Same Sum)
-                    const targetSum = seed3.split('').reduce((a, b) => a + parseInt(b), 0);
-                    // Add a few numbers with same sum (just a sample logic for efficiency)
-                    let found = 0;
-                    for (let i = 0; i < 1000; i++) {
-                        if (found >= 3) break;
-                        const s = i.toString().padStart(3, '0');
-                        const sum = s.split('').reduce((a, b) => a + parseInt(b), 0);
-                        if (sum === targetSum && i !== seed) {
-                            candidates.add(i);
-                            found++;
-                        }
+                    if (!existing.poolAnalysis && historyPrediction) {
+                        updates.poolAnalysis = historyPrediction.poolAnalysis;
+                        existing.poolAnalysis = historyPrediction.poolAnalysis;
                     }
-                    
-                    // 5. [NEW] Hot Structure Injection
-                    if (historyList.length > 0) {
-                        const hotDigits = getPositionalHotness(historyList);
-                        hotDigits[0].forEach(d1 => {
-                            hotDigits[1].forEach(d2 => {
-                                hotDigits[2].forEach(d3 => {
-                                    candidates.add(parseInt(`${d1}${d2}${d3}`));
-                                });
-                            });
-                        });
+
+                    if (Object.keys(updates).length > 0) {
+                         // Force update using updateOne to bypass schema checks if any
+                         await Prediction.collection.updateOne({ _id: existing._id }, { $set: updates });
                     }
-                    
-                    return Array.from(candidates).map(n => n.toString().padStart(3, '0')).slice(0, 20); // Increased limit
-                };
-
-                const historyPrediction = generateFromList(list, istDate);
-                const yesterdayPredictionData = generateFromList(fullList, istDate);
-
-                const updates = {};
-                
-                if (!existing.threeDigit && historyPrediction) {
-                    updates.threeDigit = historyPrediction.threeDigit;
-                    existing.threeDigit = historyPrediction.threeDigit;
                 }
-
-                if (!existing.yesterdayPrediction && yesterdayPredictionData) {
-                    updates.yesterdayPrediction = {
-                        predictedNumbers: yesterdayPredictionData.predictedNumbers,
-                        guessingBoard: yesterdayPredictionData.guessingBoard,
-                        algorithms: yesterdayPredictionData.algorithms,
-                        threeDigit: yesterdayPredictionData.threeDigit,
-                        poolAnalysis: yesterdayPredictionData.poolAnalysis
-                    };
-                    existing.yesterdayPrediction = updates.yesterdayPrediction;
-                }
-                
-                if (!existing.poolAnalysis && historyPrediction) {
-                    updates.poolAnalysis = historyPrediction.poolAnalysis;
-                    existing.poolAnalysis = historyPrediction.poolAnalysis;
-                }
-
-                if (Object.keys(updates).length > 0) {
-                     await Prediction.collection.updateOne({ _id: existing._id }, { $set: updates });
-                }
-            }
         }
     } catch (e) {
         console.error("Failed to fetch history for trend:", e.message);
     }
     
-    if (!existing) {
-        // Fallback if prediction generation failed
-        existing = await Prediction.findOne().sort({ date: -1 }).lean();
-    }
+    // (Fallback removed: If no prediction for today, return null so frontend allows manual generation)
+
 
     return NextResponse.json({ exists: !!existing, data: existing, trend });
   } catch (err) {

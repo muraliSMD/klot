@@ -70,7 +70,7 @@ export default function HistoryPage() {
                 onClick={() => setActiveTab("performance")}
                 className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 ${
                     activeTab === "performance" 
-                    ? "bg-primary text-primary-foreground shadow-lg" 
+                    ? "bg-purple-600 text-primary-foreground shadow-lg" 
                     : "text-muted-foreground hover:text-white hover:bg-white/5"
                 }`}
             >
@@ -80,7 +80,7 @@ export default function HistoryPage() {
                 onClick={() => setActiveTab("official")}
                 className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 ${
                     activeTab === "official" 
-                    ? "bg-primary text-primary-foreground shadow-lg" 
+                    ? "bg-purple-600 text-primary-foreground shadow-lg" 
                     : "text-muted-foreground hover:text-white hover:bg-white/5"
                 }`}
             >

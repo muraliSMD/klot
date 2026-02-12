@@ -9,7 +9,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-async function run() {
+async function inspect() {
   try {
     await mongoose.connect(MONGODB_URI);
     console.log("✅ Connected to MongoDB");
@@ -19,10 +19,16 @@ async function run() {
     const istDate = new Date(now.getTime() + istOffset);
     const today = istDate.toISOString().slice(0, 10);
     
-    console.log(`📅 Date: ${today}`);
+    console.log(`📅 Inspecting Date: ${today}`);
 
-    const res = await Prediction.deleteOne({ date: today });
-    console.log("🗑️ Delete Result:", res);
+    const prediction = await Prediction.findOne({ date: today }).lean();
+    
+    if (!prediction) {
+        console.log("❌ No prediction found for today.");
+    } else {
+        console.log("🔮 Found Prediction ID:", prediction._id);
+        console.log("📊 3-Digit Data:", JSON.stringify(prediction.threeDigit, null, 2));
+    }
 
     process.exit(0);
   } catch (error) {
@@ -31,4 +37,4 @@ async function run() {
   }
 }
 
-run();
+inspect();

@@ -42,8 +42,8 @@ const PredictionSchema = new mongoose.Schema(
             of: String
         },
         threeDigit: {
-            type: Map,
-            of: String
+            type: mongoose.Schema.Types.Mixed,
+            required: false
         },
         poolAnalysis: {
             sum: Number,

@@ -18,11 +18,11 @@ export default function PredictionsPage() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("Linear Trend");
-  const [viewMode, setViewMode] = useState("standard"); // 'standard' | '3digit'
+  const [activeTab, setActiveTab] = useState("Direct");
+  const [viewMode, setViewMode] = useState("3digit"); // 'standard' | '3digit'
 
   const STANDARD_TABS = ["Linear Trend", "Average Velocity", "Mirror Pattern", "Date Flow", "Delta Pattern-A"];
-  const THREE_DIGIT_TABS = ["Direct", "Reverse", "Complement", "Shift +1", "Shift -1"];
+  const THREE_DIGIT_TABS = ["Direct", "Reverse", "Complement", "Shift +1", "Shift -1", "Mirror", "Key (+2)", "Flow Pair (Fix)", "Crossing", "Repeat Middle", "Repeat Last", "Symmetric Drift", "9-Complement"];
 
   const TABS = viewMode === "3digit" ? THREE_DIGIT_TABS : STANDARD_TABS;
 
@@ -144,64 +144,68 @@ export default function PredictionsPage() {
       </div>
 
       {/* Controls Container */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-        {/* Source Toggle */}
-        <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
-            <button
-                onClick={() => setPredictionSource("history")}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    predictionSource === 'history'
-                    ? "bg-primary text-white shadow-lg"
-                    : "hover:bg-white/5 text-muted-foreground"
-                }`}
-            >
-                Same History
-            </button>
-            <button
-                onClick={() => setPredictionSource("yesterday")}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    predictionSource === 'yesterday'
-                    ? "bg-primary text-white shadow-lg"
-                    : "hover:bg-white/5 text-muted-foreground"
-                }`}
-            >
-                Yesterday's Pattern
-            </button>
+      <div className="flex flex-col gap-6">
+        
+        {/* Top Row: configuration toggles */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            {/* Source Toggle */}
+            <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
+                <button
+                    onClick={() => setPredictionSource("history")}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                        predictionSource === 'history'
+                        ? "bg-purple-600 text-white shadow-lg"
+                        : "hover:bg-white/5 text-muted-foreground"
+                    }`}
+                >
+                    Same History
+                </button>
+                <button
+                    onClick={() => setPredictionSource("yesterday")}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                        predictionSource === 'yesterday'
+                        ? "bg-purple-600 text-white shadow-lg"
+                        : "hover:bg-white/5 text-muted-foreground"
+                    }`}
+                >
+                    Yesterday's Pattern
+                </button>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
+                <button
+                    onClick={() => setViewMode("standard")}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                        viewMode === 'standard'
+                        ? "bg-purple-600 text-white shadow-lg"
+                        : "hover:bg-white/5 text-muted-foreground"
+                    }`}
+                >
+                    Standard
+                </button>
+                <button
+                    onClick={() => setViewMode("3digit")}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                        viewMode === '3digit'
+                        ? "bg-purple-600 text-white shadow-lg"
+                        : "hover:bg-white/5 text-muted-foreground"
+                    }`}
+                >
+                    3-Digit Focus
+                </button>
+            </div>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
-            <button
-                onClick={() => setViewMode("standard")}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    viewMode === 'standard'
-                    ? "bg-purple-600 text-white shadow-lg"
-                    : "hover:bg-white/5 text-muted-foreground"
-                }`}
-            >
-                Standard
-            </button>
-            <button
-                onClick={() => setViewMode("3digit")}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    viewMode === '3digit'
-                    ? "bg-purple-600 text-white shadow-lg"
-                    : "hover:bg-white/5 text-muted-foreground"
-                }`}
-            >
-                3-Digit Focus
-            </button>
-        </div>
-
-        {/* Algorithm Tabs */}
-        <div className="flex flex-wrap gap-2 p-1 glass rounded-2xl w-fit border border-white/5">
+        {/* Algorithm Tabs (Scrollable / Wrappable area) */}
+        <div className="flex flex-wrap gap-2 p-1 glass rounded-2xl w-full border border-white/5">
             {TABS.map(tab => (
             <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
                 activeTab === tab 
-                    ? "bg-primary text-white shadow-lg" 
+                    ? "bg-purple-600 text-white shadow-lg" 
                     : "hover:bg-white/5 text-muted-foreground"
                 }`}
             >
