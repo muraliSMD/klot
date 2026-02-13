@@ -13,12 +13,13 @@ export async function POST() {
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istDate = new Date(now.getTime() + istOffset);
     const istHours = istDate.getUTCHours();
+    const istMinutes = istDate.getUTCMinutes();
 
-    // Predictions only allowed between 11:00 AM and 1:00 PM IST
-    if (istHours >= 13 || istHours < 11) {
+    // Predictions only allowed between 11:00 AM and 2:30 PM IST (using correct minute logic)
+    if (istHours < 11 || istHours > 14 || (istHours === 14 && istMinutes > 30)) {
       return NextResponse.json({ 
         disabled: true, 
-        message: "Predictions can only be generated between 11:00 AM and 1:00 PM IST." 
+        message: "Predictions can only be generated between 11:00 AM and 2:30 PM IST." 
       }, { status: 403 });
     }
 
@@ -55,25 +56,46 @@ export async function POST() {
         it.draw_name.toUpperCase().startsWith(targetLottery)
     );
 
+    console.log(`[Generate] Target Lottery: ${targetLottery}`);
     if (!list.length) {
+       console.error(`[Generate] No history found for ${targetLottery}`);
        return NextResponse.json({ error: "No historical data for today's lottery found" }, { status: 404 });
     }
+    console.log(`[Generate] Found ${list.length} history items.`);
 
     // Helper to generate predictions from a list of draws
     const generateFromList = (drawList, dateObj) => {
-        if (!drawList || drawList.length < 2) return null;
+        // Relaxed requirement: Allow 1 item, default trend will be used
+        if (!drawList || drawList.length < 1) return null;
 
         const latestDraw = drawList[0]; 
         const previousDraw = drawList[1];
 
-        if (!latestDraw || !latestDraw.first_ticket) return null;
+        console.log(`[Generate] Latest Draw: ${latestDraw?.draw_name}, FirstTicket: '${latestDraw?.first_ticket}', MC: ${JSON.stringify(latestDraw?.mc)}`);
 
-        const winningNumber = latestDraw.first_ticket; 
+        // Robust extractor for winning number (supports first_ticket, result, or mc array)
+        // Check for content that actually contains digits
+        const getWinningNumber = (draw) => {
+            if (!draw) return null;
+            if (draw.first_ticket && draw.first_ticket.trim().length > 0 && /\d/.test(draw.first_ticket)) return draw.first_ticket;
+            if (draw.result && draw.result.trim().length > 0 && /\d/.test(draw.result)) return draw.result;
+            if (draw.mc && Array.isArray(draw.mc) && draw.mc.length > 0) return draw.mc[0];
+            return null;
+        };
+
+        const winningNumber = getWinningNumber(latestDraw);
+        console.log(`[Generate] Extracted Winning Number: ${winningNumber}`);
+
+        if (!winningNumber) {
+            console.error("[Generate] Failed to extract winning number from latest draw.");
+            return null;
+        }
         const numericPart = winningNumber.replace(/\D/g, ''); 
         let trend = numericPart.split('').map(() => 1);
 
-        if (previousDraw && previousDraw.first_ticket) {
-            const prevNumeric = previousDraw.first_ticket.replace(/\D/g, '');
+        const prevWinning = getWinningNumber(previousDraw);
+        if (previousDraw && prevWinning) {
+            const prevNumeric = prevWinning.replace(/\D/g, '');
             if (prevNumeric.length === numericPart.length) {
                 trend = numericPart.split('').map((d, i) => (parseInt(d) - parseInt(prevNumeric[i]) + 10) % 10);
             }

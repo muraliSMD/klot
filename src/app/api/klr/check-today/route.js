@@ -24,13 +24,13 @@ export async function GET() {
     const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
     let trend = [];
     
-    // Time Restriction Logic: Predictions are disabled after 1:00 PM (13:00) IST
+    // Time Restriction Logic: Predictions are disabled after 2:15 PM (14:15) IST
     // BUT if a prediction ALREADY EXISTS, we show it regardless of time.
     if (!existing) {
-        if (istHours >= 13 || istHours < 11) {
+        if (istHours < 11 || istHours > 14 || (istHours === 14 && istMinutes > 30)) {
           return NextResponse.json({ 
             disabled: true, 
-            message: "Predictions are only available between 11:00 AM and 1:00 PM IST." 
+            message: "Predictions are only available between 11:00 AM and 2:15 PM IST." 
           });
         }
     }
@@ -100,15 +100,26 @@ export async function GET() {
 
                 if (existing && (needsPatch || !existing.yesterdayPrediction)) {
                      const generateFromList = (drawList, dateObj) => {
-                        if (!drawList || drawList.length < 2) return null;
+                        if (!drawList || drawList.length < 1) return null;
                         const latestDraw = drawList[0]; 
                         const previousDraw = drawList[1];
-                        if (!latestDraw || !latestDraw.first_ticket) return null;
-                        const winningNumber = latestDraw.first_ticket; 
+                        
+                        const getWinningNumber = (draw) => {
+                            if (!draw) return null;
+                            if (draw.first_ticket && draw.first_ticket.trim().length > 0 && /\d/.test(draw.first_ticket)) return draw.first_ticket;
+                            if (draw.result && draw.result.trim().length > 0 && /\d/.test(draw.result)) return draw.result;
+                            if (draw.mc && Array.isArray(draw.mc) && draw.mc.length > 0) return draw.mc[0];
+                            return null;
+                        };
+
+                        const winningNumber = getWinningNumber(latestDraw);
+                        if (!winningNumber) return null;
                         const numericPart = winningNumber.replace(/\D/g, ''); 
                         let trend = numericPart.split('').map(() => 1);
-                        if (previousDraw && previousDraw.first_ticket) {
-                            const prevNumeric = previousDraw.first_ticket.replace(/\D/g, '');
+
+                        const prevWinning = getWinningNumber(previousDraw);
+                        if (previousDraw && prevWinning) {
+                            const prevNumeric = prevWinning.replace(/\D/g, '');
                             if (prevNumeric.length === numericPart.length) {
                                 trend = numericPart.split('').map((d, i) => (parseInt(d) - parseInt(prevNumeric[i]) + 10) % 10);
                             }
