@@ -11,6 +11,10 @@ const PredictionSchema = new mongoose.Schema(
       type: [String], // Store as strings to handle codes if needed
       required: true,
     },
+    topFive: {
+      type: [String], // Top 5 winning picks
+      required: false,
+    },
     guessingBoard: {
       type: [String], // Store 4-digit permutations
       required: false,
@@ -36,6 +40,7 @@ const PredictionSchema = new mongoose.Schema(
     },
     yesterdayPrediction: {
         predictedNumbers: [String],
+        topFive: [String],
         guessingBoard: [String],
         algorithms: {
             type: Map,
@@ -51,6 +56,17 @@ const PredictionSchema = new mongoose.Schema(
             hotStats: [[String]],
             matrix: [String]
         }
+    },
+    // Verification Fields
+    result: {
+        type: String, // Actual winning number (e.g., "123")
+        required: false
+    },
+    outcome: {
+        isDirectHit: { type: Boolean, default: false },
+        isBoxHit: { type: Boolean, default: false }, // Permutation match
+        winningAlgos: [String], // List of algo keys that predicted the winner
+        matchedNumber: String // The number that matched (if any)
     }
   },
   { timestamps: true }

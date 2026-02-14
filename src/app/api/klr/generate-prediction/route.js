@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/app/lib/db";
 import Prediction from "@/app/lib/models/Prediction";
+import AlgorithmStats from "@/app/lib/models/AlgorithmStats";
 import axios from "axios";
 
 const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
@@ -50,10 +51,15 @@ export async function POST() {
 
     const targetLottery = lotteryMapping[dayOfWeek];
 
-    // Filter list for the specific lottery series
+    // Filter list for the specific lottery series AND ensure valid data
     const list = fullList.filter(it => 
         it.draw_name && 
-        it.draw_name.toUpperCase().startsWith(targetLottery)
+        it.draw_name.toUpperCase().startsWith(targetLottery) &&
+        (
+            (it.first_ticket && /\d/.test(it.first_ticket)) || 
+            (it.result && /\d/.test(it.result)) || 
+            (it.mc && Array.isArray(it.mc) && it.mc.length > 0)
+        )
     );
 
     console.log(`[Generate] Target Lottery: ${targetLottery}`);
@@ -63,8 +69,16 @@ export async function POST() {
     }
     console.log(`[Generate] Found ${list.length} history items.`);
 
+    // Fetch Algorithm Stats for Dynamic Weighting
+    let algoStats = [];
+    try {
+        algoStats = await AlgorithmStats.find({});
+    } catch(e) {
+        console.warn("Failed to fetch algo stats, using defaults", e);
+    }
+
     // Helper to generate predictions from a list of draws
-    const generateFromList = (drawList, dateObj) => {
+    const generateFromList = (drawList, dateObj, algorithmStats = []) => {
         // Relaxed requirement: Allow 1 item, default trend will be used
         if (!drawList || drawList.length < 1) return null;
 
@@ -197,8 +211,75 @@ export async function POST() {
         // Flips the number field (High -> Low, Low -> High)
         const algo3D_13 = digitArray.map(d => 9 - d).join('');
 
+        // --- Consensus Engine (New Architecture) ---
+        // usage: Combine ALL generated numbers (6-digit suffix + 3-digit algos) to find the strongest consensus.
+        
+        const allCandidates = [
+            // From 6-Digit Algos (Suffices)
+            algo1.slice(-3), algo2.slice(-3), algo3.slice(-3), algo4.slice(-3), 
+            algo5.slice(-3), algo6.slice(-3), algo7.slice(-3), algo8.slice(-3), algo9.slice(-3),
+            // From 3-Digit Algos
+            algo3D_1, algo3D_2, algo3D_3, algo3D_4, algo3D_5, 
+            algo3D_6, algo3D_7, algo3D_8, algo3D_9, algo3D_10, 
+            algo3D_11, algo3D_12, algo3D_13
+        ];
+        
+        // Define key mapping for stats lookup (simplified)
+        const candidateMap = {
+            [algo9.slice(-3)]: "Composite (Hot Series)",
+            [algo3D_8]: "Flow Pair (Fix)",
+            [algo3D_10]: "Repeat Middle",
+            [algo3D_12]: "Symmetric Drift",
+            [algo3D_9]: "Crossing"
+            // Add others if needed
+        };
+
+        // Frequency Map
+        const freqMap = {};
+        allCandidates.forEach(num => {
+            freqMap[num] = (freqMap[num] || 0) + 1;
+        });
+
+        // Dynamic Weighting: Apply boosts based on AlgorithmStats
+        // Note: In a real scenario, we'd fetch stats async, but here we'll use a heuristic + passed data 
+        // to avoid async complexity inside this helper. Ideally, passed as arg.
+        
+        // HEURISTIC + STATIC WEIGHTS (Base)
+        // High Value: Composite(algo9), Repeat Middle(3D_10), Flow(3D_8)
+        [algo9.slice(-3), algo3D_10, algo3D_8].forEach(num => {
+             if(freqMap[num]) freqMap[num] += 2.0; // Base Weight boost
+        });
+        
+        // Apply Dynamic Weights if stats are provided
+        if (algorithmStats && Array.isArray(algorithmStats)) {
+            algorithmStats.forEach(stat => {
+                const targetNum = Object.keys(candidateMap).find(key => candidateMap[key] === stat.algoKey);
+                // Or check if the algo outcome matches a number in our current set
+                
+                // Simplified: Boost the specific calculated numbers if their source algo is hot
+                if (stat.hits > 0) {
+                     // Check if this algo corresponds to a generated number
+                     // e.g., if "Flow Pair (Fix)" is hot, boost algo3D_8
+                     if (stat.algoKey === "Flow Pair (Fix)" && freqMap[algo3D_8]) freqMap[algo3D_8] += (stat.hits * 0.5);
+                     if (stat.algoKey === "Repeat Middle" && freqMap[algo3D_10]) freqMap[algo3D_10] += (stat.hits * 0.5);
+                     if (stat.algoKey === "Consensus Top 5") {
+                         // Boost existing top scorers slightly
+                     }
+                }
+            });
+        }
+
+        // Convert to sorted array
+        const sortedConsensus = Object.entries(freqMap)
+            .sort(([, a], [, b]) => b - a)
+            .map(([num]) => num);
+
+        // Select Top 5-10
+        const topFive = sortedConsensus.slice(0, 6); // Take top 6 for layout balance
+
         return {
             predictedNumbers: [algo1, algo2, algo3, algo4, algo5, algo6, algo7, algo8, algo9],
+            topFive: topFive,
             algorithms: {
                 "Linear Trend": algo1,
                 "Average Velocity": algo2,
@@ -307,11 +388,11 @@ export async function POST() {
     };
 
     // 1. History Based (Same Name)
-    const historyPrediction = generateFromList(list, istDate);
+    const historyPrediction = generateFromList(list, istDate, algoStats);
 
     // 2. Yesterday Based (Global Last Draw)
     // fullList[0] is the latest draw (Yesterday's). 
-    const yesterdayPredictionData = generateFromList(fullList, istDate);
+    const yesterdayPredictionData = generateFromList(fullList, istDate, algoStats);
 
     if (!historyPrediction) {
          return NextResponse.json({ error: "Insufficient history data" }, { status: 400 });
@@ -322,12 +403,14 @@ export async function POST() {
         {
             date: today,
             predictedNumbers: historyPrediction.predictedNumbers,
+            topFive: historyPrediction.topFive,
             guessingBoard: historyPrediction.guessingBoard,
             algorithms: historyPrediction.algorithms,
             threeDigit: historyPrediction.threeDigit, // Pass the 3-digit data
             lotteryName: targetLottery,
             yesterdayPrediction: yesterdayPredictionData ? {
                 predictedNumbers: yesterdayPredictionData.predictedNumbers,
+                topFive: yesterdayPredictionData.topFive,
                 guessingBoard: yesterdayPredictionData.guessingBoard,
                 algorithms: yesterdayPredictionData.algorithms,
                 threeDigit: yesterdayPredictionData.threeDigit, // Ensure this is also passed if needed

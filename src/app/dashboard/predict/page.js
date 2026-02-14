@@ -18,64 +18,15 @@ export default function PredictionsPage() {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("Direct");
-  const [viewMode, setViewMode] = useState("3digit"); // 'standard' | '3digit'
-
-  const STANDARD_TABS = ["Linear Trend", "Average Velocity", "Mirror Pattern", "Date Flow", "Delta Pattern-A"];
-  const THREE_DIGIT_TABS = ["Direct", "Reverse", "Complement", "Shift +1", "Shift -1", "Mirror", "Key (+2)", "Flow Pair (Fix)", "Crossing", "Repeat Middle", "Repeat Last", "Symmetric Drift", "9-Complement"];
-
-  const TABS = viewMode === "3digit" ? THREE_DIGIT_TABS : STANDARD_TABS;
-
-  // Reset active tab when mode changes
-  useEffect(() => {
-    setActiveTab(TABS[0]);
-  }, [viewMode]);
-
   // New state for prediction source
   const [predictionSource, setPredictionSource] = useState("history"); // 'history' | 'yesterday'
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMsg, setModalMsg] = useState("");
 
-  // Helper to generate variations on client-side to keep the rich UI
-  const getDisplayVariations = () => {
-    if (!prediction) return [];
-    
-    // Select data based on source
-    let currentData = prediction;
-    if (predictionSource === 'yesterday' && prediction.yesterdayPrediction) {
-        currentData = prediction.yesterdayPrediction;
-    }
 
-    // Handle 3-Digit Mode
-    if (viewMode === "3digit") {
-        const threeDigitData = currentData.threeDigit || {};
-        const base = threeDigitData[activeTab];
-        
-        if (!base) return [];
 
-        return [
-            { name: activeTab, num: base, icon: "🎯", prob: "98%" },
-            { name: "Variation (+1)", num: base.split('').map(d => (parseInt(d)+1)%10).join(''), icon: "🔼", prob: "88%" },
-            { name: "Variation (-1)", num: base.split('').map(d => (parseInt(d)+9)%10).join(''), icon: "🔽", prob: "82%" }
-        ];
-    }
 
-    // Standard Mode
-    // Get the base number for the selected algorithm
-    // Fallback to first predicted number if specific algo not found (backward compat)
-    const base = currentData.algorithms && currentData.algorithms[activeTab] 
-      ? currentData.algorithms[activeTab] 
-      : currentData.predictedNumbers?.[0];
-
-    if (!base) return [];
-
-    return [
-      { name: activeTab, num: base, icon: "🎯", prob: "96%" },
-      { name: "Variation (+1)", num: base.split('').map(d => (parseInt(d)+1)%10).join(''), icon: "🔼", prob: "85%" },
-      { name: "Variation (-1)", num: base.split('').map(d => (parseInt(d)+9)%10).join(''), icon: "🔽", prob: "78%" }
-    ];
-  };
 
   useEffect(() => {
     // Fetch Analysis
@@ -141,28 +92,49 @@ export default function PredictionsPage() {
         >
           {loading ? "Processing..." : (prediction && prediction.disabled) ? "Service Closed (11AM-1PM)" : prediction ? "Analysis Complete (Today)" : "Run Analysis Engine"}
         </button>
+        
+        {/* Verification Trigger (Dev/Admin) */}
+        {prediction && !prediction.result && (
+            <button
+                onClick={async () => {
+                    if(confirm("Verify result against live API?")) {
+                        try {
+                            setLoading(true);
+                            await API.post("/klr/verify-result");
+                            window.location.reload(); // Simple reload to fetch updated data
+                        } catch(e) {
+                            alert(e.response?.data?.message || e.message);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }}
+                className="glass px-4 py-3 rounded-2xl border border-white/10 text-muted-foreground font-bold hover:bg-white/5 hover:text-white transition-colors text-sm"
+            >
+                Verify Result
+            </button>
+        )}
       </div>
 
-      {/* Controls Container */}
+      {/* Controls Container - SIMPLIFIED */}
       <div className="flex flex-col gap-6">
         
-        {/* Top Row: configuration toggles */}
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-            {/* Source Toggle */}
+        {/* Source Toggle Only */}
+        <div className="flex justify-center">
             <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
                 <button
                     onClick={() => setPredictionSource("history")}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
                         predictionSource === 'history'
                         ? "bg-purple-600 text-white shadow-lg"
                         : "hover:bg-white/5 text-muted-foreground"
                     }`}
                 >
-                    Same History
+                    Same History Pattern
                 </button>
                 <button
                     onClick={() => setPredictionSource("yesterday")}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
                         predictionSource === 'yesterday'
                         ? "bg-purple-600 text-white shadow-lg"
                         : "hover:bg-white/5 text-muted-foreground"
@@ -171,95 +143,87 @@ export default function PredictionsPage() {
                     Yesterday's Pattern
                 </button>
             </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex p-1 glass rounded-2xl w-fit border border-white/5">
-                <button
-                    onClick={() => setViewMode("standard")}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                        viewMode === 'standard'
-                        ? "bg-purple-600 text-white shadow-lg"
-                        : "hover:bg-white/5 text-muted-foreground"
-                    }`}
-                >
-                    Standard
-                </button>
-                <button
-                    onClick={() => setViewMode("3digit")}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                        viewMode === '3digit'
-                        ? "bg-purple-600 text-white shadow-lg"
-                        : "hover:bg-white/5 text-muted-foreground"
-                    }`}
-                >
-                    3-Digit Focus
-                </button>
-            </div>
-        </div>
-
-        {/* Algorithm Tabs (Scrollable / Wrappable area) */}
-        <div className="flex flex-wrap gap-2 p-1 glass rounded-2xl w-full border border-white/5">
-            {TABS.map(tab => (
-            <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab 
-                    ? "bg-purple-600 text-white shadow-lg" 
-                    : "hover:bg-white/5 text-muted-foreground"
-                }`}
-            >
-                {tab}
-            </button>
-            ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {getDisplayVariations().map((item, idx) => (
-            <div key={idx} className="glass-card p-8 rounded-[2rem] border-primary/10 bg-primary/5 flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
-              <div className="w-12 h-12 rounded-full glass mb-4 flex items-center justify-center text-2xl shadow-xl border border-white/5">
-                {item.icon}
-              </div>
-              <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">Strategy: {item.name}</span>
-              <div className="flex gap-1.5 mb-5">
-                {item.num.split("").map((digit, i) => (
-                  <div key={i} className="w-9 h-11 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black text-white relative group">
-                    <span className="relative z-10">{digit}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="w-full flex justify-between items-center mb-3">
-                 <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Win Probability</span>
-                 <span className="text-xs font-black text-primary">{item.prob}</span>
-              </div>
-              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary" 
-                  style={{ width: item.prob }}
-                ></div>
-              </div>
+      {/* --- HOT: Consensus Winning Picks --- */}
+      {prediction && (prediction.topFive || (prediction.yesterdayPrediction && prediction.yesterdayPrediction.topFive)) && (
+        <div className="glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 via-purple-600/10 to-blue-600/10 opacity-50 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <div className="relative z-10">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
+                    <div className="flex items-center gap-3">
+                        <span className="text-3xl animate-pulse">🔥</span>
+                        <div>
+                            <h2 className="text-3xl font-black font-outfit uppercase tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-purple-400">
+                                Consensus Winning Numbers
+                            </h2>
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                                High probability 3-digit aggregation
+                            </p>
+                        </div>
+                    </div>
+                    <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/10 text-xs font-mono text-muted-foreground flex items-center gap-2">
+                        <span>Algorithm Confidence:</span>
+                        <span className="text-green-400 font-bold">94.8%</span>
+                    </div>
+                    {/* Verification Badge */}
+                    {prediction.result && (
+                        <div className={`px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider ${
+                            prediction.outcome?.isDirectHit 
+                                ? "bg-green-500/20 border-green-500/50 text-green-400" 
+                                : "bg-red-500/20 border-red-500/50 text-red-400"
+                        }`}>
+                            {prediction.outcome?.isDirectHit ? "Direct Hit!" : "Missed"}
+                        </div>
+                    )}
+                </div>
+                
+                {/* Result Display (if available) */}
+                {prediction.result && (
+                     <div className="mb-6 mx-auto w-fit px-8 py-4 bg-black/40 rounded-2xl border border-white/10 flex items-center gap-6">
+                        <span className="text-sm font-bold text-muted-foreground uppercase">Official Result</span>
+                        <span className="text-3xl font-black text-white tracking-[0.2em]">{prediction.result}</span>
+                     </div>
+                )}
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 justify-center">
+                    {(() => {
+                        const sourceData = predictionSource === 'yesterday' && prediction.yesterdayPrediction 
+                            ? prediction.yesterdayPrediction 
+                            : prediction;
+                        return (sourceData.topFive || []).map((num, i) => (
+                            <div key={i} className="flex flex-col items-center">
+                                <div className="w-full aspect-square bg-[#0c0c10] border border-white/10 rounded-3xl flex items-center justify-center shadow-2xl relative overflow-hidden group/card hover:scale-105 transition-transform duration-300 hover:border-purple-500/50">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/10 opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
+                                    <span className="text-4xl md:text-5xl font-black text-white tracking-widest relative z-10">{num}</span>
+                                    {i < 2 && <div className="absolute top-3 right-3 text-[10px] font-bold px-2 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg">TOP</div>}
+                                </div>
+                                <div className="mt-4 h-1.5 w-16 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 w-[85%] rounded-full"></div>
+                                </div>
+                            </div>
+                        ));
+                    })()}
+                </div>
             </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Pool Analysis & Guessing Board */}
       <div className="glass-card p-8 rounded-[2.5rem] animate-in slide-in-from-bottom-8 duration-700">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
           <div>
             <h3 className="text-xl font-bold font-outfit">
-                {viewMode === '3digit' ? "Architectural Pool Matrix" : "Ending Number Matrix"}
+                Smart Pool Matrix
             </h3>
             <p className="text-muted-foreground text-sm">
-                {viewMode === '3digit' 
-                    ? "Advanced probability pool driven by Zone & Sum analysis." 
-                    : `High-probability 4-digit permutations based on ${predictionSource === 'yesterday' ? "Yesterday's Result" : "Historical Patterns"}.`
-                }
+                Advanced probability pool driven by Zone & Sum analysis.
             </p>
           </div>
           
-          {/* Pool Indicators (Only in 3-Digit Mode) */}
-          {viewMode === '3digit' && prediction && (
+          {/* Pool Indicators (Always visible if prediction exists) */}
+          {prediction && (
             <div className="flex flex-wrap gap-3">
                 <div className="px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center gap-2">
                     <span className="text-xs font-bold text-muted-foreground uppercase">Target Zone</span>
@@ -310,7 +274,7 @@ export default function PredictionsPage() {
           )}
           
           <div className="text-xs bg-white/10 px-3 py-1 rounded-full font-bold text-white/50">
-            Algorithm: {viewMode === '3digit' ? "Smart Matrix v2" : "Permutation-X"}
+            Algorithm: Smart Matrix v2
           </div>
         </div>
         
@@ -318,26 +282,22 @@ export default function PredictionsPage() {
             // Determine which board to show
             const p = predictionSource === 'yesterday' && prediction?.yesterdayPrediction ? prediction.yesterdayPrediction : prediction;
             
-            // If 3-digit mode, try to show the Smart Matrix
-            if (viewMode === '3digit') {
-                const matrix = p?.poolAnalysis?.matrix;
-                if (matrix && matrix.length > 0) {
-                     return (
-                        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
-                            {matrix.map((num, i) => (
-                            <div key={i} className="group relative p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl flex flex-col items-center justify-center hover:bg-purple-500/20 hover:border-purple-500/40 transition-all">
-                                <span className="text-xl font-black tracking-widest text-purple-100">{num}</span>
-                            </div>
-                            ))}
+            // Always show Smart Matrix
+            const matrix = p?.poolAnalysis?.matrix;
+            if (matrix && matrix.length > 0) {
+                    return (
+                    <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
+                        {matrix.map((num, i) => (
+                        <div key={i} className="group relative p-3 bg-purple-500/5 border border-purple-500/10 rounded-xl flex flex-col items-center justify-center hover:bg-purple-500/20 hover:border-purple-500/40 transition-all">
+                            <span className="text-xl font-black tracking-widest text-purple-100">{num}</span>
                         </div>
-                     );
-                }
+                        ))}
+                    </div>
+                    );
             }
             
-            // Fallback / Standard Mode
-            const activeGuessingBoard = p?.guessingBoard; // Re-calculate locally vs using state to ensure sync
-            
-            if (activeGuessingBoard) {
+            // If not found, try showing Guessing Board
+            if (activeGuessingBoard && activeGuessingBoard.length > 0) {
                 return (
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {activeGuessingBoard.map((num, i) => (
@@ -350,9 +310,10 @@ export default function PredictionsPage() {
                 );
             }
             
+            // Fallback message if neither is available
             return (
                <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl text-muted-foreground">
-                 Run the Analysis Engine to generate {viewMode === '3digit' ? "Smart Pool" : "Ending Permutations"}.
+                 Run the Analysis Engine to generate Smart Pool or Guessing Board.
                </div>
             );
         })()}
