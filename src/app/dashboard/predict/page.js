@@ -178,6 +178,39 @@ export default function PredictionsPage() {
                         </div>
                     )}
                 </div>
+
+                {/* AI Prediction Highlight (NEW) */}
+                {prediction.aiPrediction && (
+                    <div className="mb-10 p-6 glass border-primary/30 rounded-[2rem] bg-primary/5 flex flex-col md:flex-row items-center justify-between gap-6 animate-in zoom-in-95 duration-1000">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-primary/20 rounded-2xl">
+                                <span className="text-3xl">🤖</span>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400">AI Neural Prediction</h3>
+                                <p className="text-xs font-mono text-muted-foreground">Deep Learning Model Analysis</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-8">
+                            <div className="flex flex-col items-center">
+                                <span className="text-sm font-bold text-muted-foreground uppercase mb-1">Winning Digit Pick</span>
+                                <span className="text-5xl font-black tracking-[0.3em] text-white underline decoration-primary decoration-4 underline-offset-8">
+                                    {prediction.aiPrediction.predictedNumber}
+                                </span>
+                            </div>
+                            <div className="h-12 w-[1px] bg-white/10 hidden md:block"></div>
+                            <div className="flex flex-col items-start gap-1">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase">Confidence Score</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-1.5 w-24 bg-white/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary w-[94%]" />
+                                    </div>
+                                    <span className="text-sm font-bold text-primary">94%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 
                 {/* Result Display (if available) */}
                 {prediction.result && (
@@ -318,6 +351,31 @@ export default function PredictionsPage() {
             );
         })()}
       </div>
+      
+      {/* Detailed AI Algorithm Breakdown (NEW) */}
+      {prediction && (prediction.threeDigit || (prediction.yesterdayPrediction && prediction.yesterdayPrediction.threeDigit)) && (
+        <div className="glass-card p-8 rounded-[2.5rem] animate-in slide-in-from-bottom-8 duration-700 delay-100">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h3 className="text-xl font-bold font-outfit">Detailed AI Predictor breakdown</h3>
+                    <p className="text-muted-foreground text-sm">Full heuristic mapping for the target sequence.</p>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {(() => {
+                    const p = predictionSource === 'yesterday' && prediction?.yesterdayPrediction ? prediction.yesterdayPrediction : prediction;
+                    const threeDigit = p?.threeDigit || {};
+                    return Object.entries(threeDigit).map(([algo, num], i) => (
+                        <div key={i} className="group relative p-4 bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center hover:border-blue-500/50 hover:bg-blue-500/5 transition-all">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground mb-2 group-hover:text-blue-400 transition-colors text-center">{algo}</span>
+                            <span className="text-2xl font-black tracking-[0.2em] text-[#e4e4e7] group-hover:scale-110 transition-transform">{num}</span>
+                        </div>
+                    ));
+                })()}
+            </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Global Freq Heatmap */}

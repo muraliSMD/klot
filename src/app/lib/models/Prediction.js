@@ -67,6 +67,12 @@ const PredictionSchema = new mongoose.Schema(
         isBoxHit: { type: Boolean, default: false }, // Permutation match
         winningAlgos: [String], // List of algo keys that predicted the winner
         matchedNumber: String // The number that matched (if any)
+    },
+    aiPrediction: {
+        predictedNumber: String,
+        targetDate: String,
+        confidence: Number,
+        features: mongoose.Schema.Types.Mixed
     }
   },
   { timestamps: true }
