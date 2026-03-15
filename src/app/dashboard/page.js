@@ -37,7 +37,11 @@ export default function DashboardPage() {
 
     API.get("/klr/check-today")
       .then(res => {
-        if (res.data.data) setPrediction(res.data.data);
+        if (res.data.data) {
+          setPrediction({ ...res.data.data, trend: res.data.trend });
+        } else if (res.data.disabled) {
+          setPrediction({ disabled: true, message: res.data.message });
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -138,46 +142,67 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold font-outfit text-primary">Live Prediction</h3>
-              <span className="text-[10px] px-2 py-0.5 bg-primary/20 text-primary rounded-full font-black animate-pulse">ACTIVE</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${prediction?.disabled ? "bg-red-500/20 text-red-500" : "bg-primary/20 text-primary animate-pulse"}`}>
+                {prediction?.disabled ? "CLOSED" : "ACTIVE"}
+              </span>
             </div>
             {prediction ? (
-              <div className="space-y-4">
-                <div className="flex gap-2 justify-center">
-                  {prediction.predictedNumbers[0].split("").map((d, i) => (
-                    <div key={i} className="w-8 h-10 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black">{d}</div>
-                  ))}
+              prediction.disabled ? (
+                <div className="text-center py-4">
+                  <p className="text-xs text-muted-foreground">Service available 11AM - 1PM IST</p>
                 </div>
-                <div className="text-center text-xs text-muted-foreground italic">Strategy: Hot-Positional</div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-2 justify-center">
+                    {prediction.predictedNumbers[0].split("").map((d, i) => (
+                      <div key={i} className="w-8 h-10 bg-[#08080a] border border-white/5 rounded-lg flex items-center justify-center text-lg font-black">{d}</div>
+                    ))}
+                  </div>
+                  <div className="text-center text-xs text-muted-foreground italic">Strategy: Hot-Positional</div>
+                </div>
+              )
             ) : (
               <div className="p-8 text-center text-muted-foreground text-sm">Generating new ensemble...</div>
             )}
           </div>
           <button 
+            disabled={prediction?.disabled}
             onClick={() => router.push("/dashboard/predict")}
-            className="w-full mt-6 py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:scale-[1.02] transition-transform shadow-xl shadow-primary/20"
+            className={`w-full mt-6 py-3 rounded-xl font-bold text-sm transition-transform shadow-xl ${
+              prediction?.disabled 
+                ? "bg-white/5 text-muted-foreground cursor-not-allowed" 
+                : "bg-primary text-primary-foreground hover:scale-[1.02] shadow-primary/20"
+            }`}
           >
-            Go to Predict Center
+            {prediction?.disabled ? "Service Closed" : "Go to Predict Center"}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="glass-card p-8 rounded-[2rem]">
-          <h3 className="text-lg font-bold mb-4 font-outfit">Recent Patterns</h3>
+          <h3 className="text-lg font-bold mb-4 font-outfit">Recent Patterns (Live Trend)</h3>
           <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-4 glass rounded-2xl border-white/5 group hover:border-primary/20 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs">{i}</div>
-                  <div>
-                    <div className="font-bold">Repeating Pair Discovery</div>
-                    <div className="text-xs text-muted-foreground">Detected across last 50 draws</div>
+            {prediction && prediction.trend ? (
+               prediction.trend.map((shift, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 glass rounded-2xl border-white/5 group hover:border-primary/20 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-xs text-muted-foreground">Pos {i+1}</div>
+                      <div>
+                        <div className="font-bold">Digit Shift</div>
+                        <div className="text-xs text-muted-foreground">Historical movement</div>
+                      </div>
+                    </div>
+                    <div className={`font-black text-xl ${shift === 0 ? "text-muted-foreground" : "text-primary"}`}>
+                       {shift > 0 ? `+${shift}` : shift}
+                    </div>
                   </div>
+               ))
+            ) : (
+                <div className="text-center text-muted-foreground py-10">
+                   {loading ? "Analyzing trends..." : "No trend data available."}
                 </div>
-                <div className="text-primary font-black">92%</div>
-              </div>
-            ))}
+            )}
           </div>
         </div>
         <div className="glass-card p-8 rounded-[2rem] bg-primary/5 border-primary/10">
@@ -186,10 +211,15 @@ export default function DashboardPage() {
             Based on current digit frequencies, we're seeing an unusual clustering around the digit <span className="text-primary font-bold">{stats.topDigit}</span>. This trend often precedes a shift in number distribution patterns.
           </p>
           <button 
+            disabled={prediction?.disabled}
             onClick={() => router.push("/dashboard/predict")}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:scale-102 transition-transform shadow-xl shadow-primary/20"
+            className={`w-full py-3 rounded-xl font-bold text-sm transition-transform shadow-xl ${
+              prediction?.disabled 
+                ? "bg-white/5 text-muted-foreground cursor-not-allowed" 
+                : "bg-primary text-primary-foreground hover:scale-102 shadow-primary/20"
+            }`}
           >
-            Generate New Prediction
+            {prediction?.disabled ? "Service Closed" : "Generate New Prediction"}
           </button>
         </div>
       </div>

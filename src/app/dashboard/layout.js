@@ -112,7 +112,7 @@ export default function DashboardLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 md:p-16 max-w-7xl mx-auto w-full relative h-[100vh] overflow-y-scroll scrollbar-hide">
+      <main className="flex-1 p-8 md:p-16 max-w-full mx-auto w-full relative h-[100vh] overflow-y-scroll scrollbar-hide">
         <header className="flex justify-between items-center mb-12">
           <div>
             <span className="text-xs font-bold text-primary uppercase tracking-widest">Dashboard</span>

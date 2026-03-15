@@ -8,6 +8,7 @@ export default function LandingPage() {
   const [prediction, setPrediction] = useState(null);
   const [history, setHistory] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isPredictionsDisabled, setIsPredictionsDisabled] = useState(false);
 
   useEffect(() => {
     // Check login status
@@ -35,12 +36,16 @@ export default function LandingPage() {
       // The API returns { items: [...] } or just [...]
       const list = res.data.items || res.data;
       if (Array.isArray(list)) {
-        setHistory(list.slice(0, 10));
+        setHistory(list);
       }
     }).catch(console.error);
     
     API.get("/klr/check-today").then(res => {
-      if (res.data.data) setPrediction(res.data.data);
+      if (res.data.disabled) {
+        setIsPredictionsDisabled(true);
+      } else if (res.data.data) {
+        setPrediction(res.data.data);
+      }
     }).catch(console.error);
   }, []);
 
@@ -120,7 +125,19 @@ export default function LandingPage() {
                  {!isLoggedIn && <span className="text-[10px] bg-primary text-white px-2 py-1 rounded font-bold">PREMIUM</span>}
               </div>
 
-              {isLoggedIn ? (
+              {isPredictionsDisabled ? (
+                // Predictions Disabled State
+                <div className="space-y-4 py-4 text-center">
+                   <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl font-bold text-sm mb-4">
+                      PREDICTIONS CLOSED
+                   </div>
+                   <p className="text-muted-foreground">Today's predictions are available only between 11:00 AM and 1:00 PM IST. Please check back during this window.</p>
+                   <div className="flex justify-center gap-4 opacity-30 grayscale pointer-events-none">
+                      <span className="text-2xl font-black">??, ??</span>
+                      <span className="text-2xl font-black">??, ??</span>
+                   </div>
+                </div>
+              ) : isLoggedIn ? (
                 // Logged In: Show Full Prediction
                 prediction ? (
                    <div className="space-y-4">
@@ -161,7 +178,9 @@ export default function LandingPage() {
                   </div>
                 </div>
               )}
-              <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground font-bold">Updated Live</div>
+              <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                 {isPredictionsDisabled ? "Predictions Closed" : "Updated Live"}
+              </div>
             </div>
         </div>
 
@@ -169,17 +188,17 @@ export default function LandingPage() {
         <div className="glass-card p-8 rounded-3xl h-[500px] overflow-hidden flex flex-col">
           <h3 className="text-2xl font-bold mb-6 font-outfit flex items-center gap-2">
             <span>Past Results</span>
-            <span className="text-xs bg-white/10 px-2 py-1 rounded text-muted-foreground font-normal">Last 10</span>
+            <span className="text-xs bg-white/10 px-2 py-1 rounded text-muted-foreground font-normal">Full History</span>
           </h3>
-          <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3">
+          <div className="flex-1 overflow-y-auto space-y-3">
             {history.length > 0 ? (
               history.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-4 glass rounded-2xl hover:bg-white/5 transition-colors">
                   <div>
                     <div className="font-bold text-white">{item.firstprize || item.first_ticket || "Wait..."}</div>
-                    <div className="text-xs text-muted-foreground">{item.date}</div>
+                    <div className="text-xs text-muted-foreground">{item.date || item.draw_date}</div>
                   </div>
-                  <div className="text-xs font-bold text-primary uppercase tracking-wider">{item.name || "Draw"}</div>
+                  <div className="text-xs font-bold text-primary uppercase tracking-wider">{item.name || item.draw_name || "Draw"}</div>
                 </div>
               ))
             ) : (
