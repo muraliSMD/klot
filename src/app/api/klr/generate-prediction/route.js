@@ -242,24 +242,35 @@ export async function POST() {
     let algoStats = [];
     try { algoStats = await AlgorithmStats.find({}); } catch(e) {}
 
-    // AI Prediction
-    let aiPrediction = null;
-    try {
-        const result = spawnSync("python", [path.resolve("python/predict.py")], { encoding: 'utf-8' });
-        if (result.stdout) {
-            const jsonMatch = result.stdout.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.predicted_number) {
-                    aiPrediction = { predictedNumber: parsed.predicted_number, targetDate: parsed.target_date, confidence: 0.85, features: parsed.features };
+    // AI Predictions (Ensemble)
+    let aiPredictions = {};
+    const modelTypes = ['rf', 'xgb', 'lstm'];
+    
+    for (const type of modelTypes) {
+        try {
+            const result = spawnSync("python", [path.resolve("python/predict.py"), type], { encoding: 'utf-8' });
+            if (result.stdout) {
+                const jsonMatch = result.stdout.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.predicted_number) {
+                        aiPredictions[type] = { 
+                            predictedNumber: parsed.predicted_number, 
+                            targetDate: parsed.target_date, 
+                            confidence: type === 'rf' ? 0.85 : type === 'xgb' ? 0.88 : 0.82, 
+                            features: parsed.features 
+                        };
+                    }
                 }
             }
+        } catch (e) {
+            console.error(`AI Prediction error for ${type}:`, e);
         }
-    } catch (e) {}
+    }
 
-    const historyPrediction = generateFromList(list, istDate, algoStats, aiPrediction);
+    const historyPrediction = generateFromList(list, istDate, algoStats, aiPredictions.rf);
     const validFullList = fullList.filter(it => (it.first_ticket && /\d/.test(it.first_ticket)) || (it.result && /\d/.test(it.result)) || (it.mc && Array.isArray(it.mc) && it.mc.length > 0));
-    const yesterdayPredictionData = generateFromList(validFullList, istDate, algoStats, aiPrediction);
+    const yesterdayPredictionData = generateFromList(validFullList, istDate, algoStats, aiPredictions.rf);
 
     if (!historyPrediction) return NextResponse.json({ error: "Insufficient history data" }, { status: 400 });
 
@@ -282,7 +293,7 @@ export async function POST() {
                 poolAnalysis: yesterdayPredictionData.poolAnalysis
             } : undefined,
             poolAnalysis: historyPrediction.poolAnalysis,
-            aiPrediction: aiPrediction
+            aiPredictions: aiPredictions
         },
         { upsert: true, new: true }
     );

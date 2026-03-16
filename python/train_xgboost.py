@@ -1,13 +1,14 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 from sklearn.multioutput import MultiOutputClassifier
 import joblib
 import os
 import sys
 
-def train_model(csv_path='python/data/history.csv'):
+def train_xgboost(csv_path='python/data/history.csv'):
     if not os.path.exists(csv_path):
+        print(f"File {csv_path} not found.")
         return
 
     df = pd.read_csv(csv_path)
@@ -33,12 +34,22 @@ def train_model(csv_path='python/data/history.csv'):
     # Targets are discrete digits (0-9)
     y = df[['digit_1', 'digit_2', 'digit_3']]
 
-    # Model: MultiOutputClassifier wrapped around RandomForest
-    model = MultiOutputClassifier(RandomForestClassifier(n_estimators=300, max_depth=12, random_state=42))
+    # Model: MultiOutputClassifier wrapped around XGBClassifier
+    # XGBoost is often better than RandomForest but requires more tuning
+    model = MultiOutputClassifier(XGBClassifier(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric='mlogloss'
+    ))
+    
     model.fit(X, y)
 
     os.makedirs('python/models', exist_ok=True)
-    joblib.dump(model, 'python/models/lottery_model.pkl')
+    joblib.dump(model, 'python/models/lottery_model_xgb.pkl')
+    print("XGBoost model trained and saved to python/models/lottery_model_xgb.pkl")
 
 if __name__ == "__main__":
-    train_model()
+    train_xgboost()

@@ -68,11 +68,9 @@ const PredictionSchema = new mongoose.Schema(
         winningAlgos: [String], // List of algo keys that predicted the winner
         matchedNumber: String // The number that matched (if any)
     },
-    aiPrediction: {
-        predictedNumber: String,
-        targetDate: String,
-        confidence: Number,
-        features: mongoose.Schema.Types.Mixed
+    aiPredictions: {
+        type: mongoose.Schema.Types.Mixed, // Stores { rf: {...}, xgb: {...}, lstm: {...} }
+        required: false
     }
   },
   { timestamps: true }

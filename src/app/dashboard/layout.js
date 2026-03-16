@@ -44,6 +44,7 @@ export default function DashboardLayout({ children }) {
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: "📊" },
     { name: "Predict", href: "/dashboard/predict", icon: "✨" },
+    { name: "AI Predictor", href: "/dashboard/ai-predictor", icon: "🧠" },
     { name: "History", href: "/dashboard/history", icon: "🕒" },
     { name: "Profile", href: "/dashboard/profile", icon: "👤" },
   ];

@@ -49,6 +49,11 @@ def process_data(items):
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values('date')
     
+    # NEW: Date Features
+    df['day_of_week'] = df['date'].dt.dayofweek
+    df['day'] = df['date'].dt.day
+    df['month'] = df['date'].dt.month
+    
     # Feature Engineering: Lag features (Previous winners)
     for i in range(1, 6): # Last 5 winners
         df[f'lag_d1_{i}'] = df['digit_1'].shift(i)
@@ -65,6 +70,16 @@ def process_data(items):
     df['roll_d1'] = df['digit_1'].rolling(window=10).mean().shift(1)
     df['roll_d2'] = df['digit_2'].rolling(window=10).mean().shift(1)
     df['roll_d3'] = df['digit_3'].rolling(window=10).mean().shift(1)
+
+    # NEW: Distance from rolling mean (helps detect Reversion to Mean)
+    df['dist_d1'] = (df['digit_1'].shift(1) - df['roll_d1']).fillna(0)
+    df['dist_d2'] = (df['digit_2'].shift(1) - df['roll_d2']).fillna(0)
+    df['dist_d3'] = (df['digit_3'].shift(1) - df['roll_d3']).fillna(0)
+    
+    # NEW: Sequential Odd/Even pattern
+    df['is_even_d1'] = (df['digit_1'].shift(1) % 2 == 0).astype(int)
+    df['is_even_d2'] = (df['digit_2'].shift(1) % 2 == 0).astype(int)
+    df['is_even_d3'] = (df['digit_3'].shift(1) % 2 == 0).astype(int)
     
     # Drop rows with NaN from shifting
     df = df.dropna()

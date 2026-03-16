@@ -3,3 +3,5 @@ scikit-learn
 requests
 joblib
 numpy
+xgboost
+tensorflow
