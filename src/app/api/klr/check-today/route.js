@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/app/lib/db";
-import axios from "axios";
+import { fetchWithCache } from "@/app/lib/apiCache";
 import Prediction from "@/app/lib/models/Prediction";
 
 export async function GET() {
@@ -38,10 +38,9 @@ export async function GET() {
     let targetLottery = "";
     let dayOfWeek = "";
     
-    // Fetch History
+    // Fetch History using high-speed server memory cache
     try {
-        // Increase limit to 1000 to find enough matches for specific lottery series
-        const { data: historyData } = await axios.get(`${BASE_URL}/history?limit=1000`);
+        const historyData = await fetchWithCache(`${BASE_URL}/history?limit=300`, 5 * 60 * 1000);
         const fullList = Array.isArray(historyData) ? historyData : (historyData.items || []);
 
         // Determine today's lottery name based on IST day of week

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import API from "@/app/lib/api";
+import TicketStub from "@/app/components/TicketStub";
 
 export default function LandingPage() {
   const [latestResult, setLatestResult] = useState(null);
@@ -16,14 +17,9 @@ export default function LandingPage() {
     setIsLoggedIn(!!token);
 
     // Fetch Data
-    // Fetch Data
     API.get("/klr/latest").then(res => {
-      // Handle if API returns an array or object
       let data = Array.isArray(res.data) ? res.data[0] : res.data;
-      
-      // Data normalization for robustness
       if (data) {
-        // Extract date from name if needed "Day (DD.MM.YYYY)"
         if (!data.date && data.name) {
            const match = data.name.match(/\((\d{2}\.\d{2}\.\d{4})\)/);
            if (match) data.date = match[1];
@@ -33,7 +29,6 @@ export default function LandingPage() {
     }).catch(console.error);
 
     API.get("/klr/history").then(res => {
-      // The API returns { items: [...] } or just [...]
       const list = res.data.items || res.data;
       if (Array.isArray(list)) {
         setHistory(list);
@@ -58,7 +53,6 @@ export default function LandingPage() {
           LOT
         </div>
         <div className="flex gap-6 items-center">
-          {/* <Link href="/dashboard" className="text-sm font-bold text-muted-foreground hover:text-white transition-colors">Analytics</Link> */}
           {!isLoggedIn && (
              <Link href="/login" className="px-5 py-2 glass rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-colors">Sign In</Link>
           )}
@@ -101,19 +95,29 @@ export default function LandingPage() {
         
         {/* Left Col: Result & Prediction Teaser */}
         <div className="space-y-8">
-            {/* Latest Result */}
-            <div className="glass-card p-8 rounded-3xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            {/* Latest Official Winning Ticket */}
+            <div className="glass-card p-6 md:p-8 rounded-[2.5rem] relative overflow-hidden group border border-amber-500/20 bg-gradient-to-br from-[#121520] via-black to-[#181c28] shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold font-outfit text-white">Today's Winning Ticket</h3>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-black uppercase tracking-wider">
+                  LIVE RESULT
+                </span>
               </div>
-              <h3 className="text-2xl font-bold mb-4 font-outfit">Latest Predicted Result</h3>
               {latestResult ? (
-                <div>
-                  <div className="text-4xl font-black text-primary mb-2 tracking-widest">{latestResult.first_ticket || latestResult.firstprize}</div>
-                  <p className="text-muted-foreground">{latestResult.date || "Today"}</p>
-                </div>
+                <TicketStub
+                  prizeTitle="1ST PRIZE"
+                  drawCode={latestResult.draw_name || latestResult.name || "BT-72"}
+                  prizeAmount={latestResult.prize_amount || latestResult.firstprize || "₹1,00,00,000 (1 Crore)"}
+                  series={(latestResult.first_ticket || latestResult.result || "BT").replace(/[^A-Z]/gi, "").slice(0, 2).toUpperCase() || "BV"}
+                  seriesLabel="SERIES"
+                  number={(latestResult.first_ticket || latestResult.result || "635205").replace(/\D/g, "").slice(-6) || "635205"}
+                  subtext="Tap ticket to copy winning number"
+                  badgeColor="gold"
+                />
               ) : (
-                <p className="text-muted-foreground animate-pulse">Fetching live result...</p>
+                <div className="p-8 text-center text-muted-foreground animate-pulse">
+                  Fetching live winning ticket...
+                </div>
               )}
             </div>
 

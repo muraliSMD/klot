@@ -4,10 +4,22 @@ import path from "path";
 import dbConnect from "@/app/lib/db";
 import Prediction from "@/app/lib/models/Prediction";
 
+import fs from "fs";
+
 // Helper to run python scripts
 async function runPythonScript(scriptPath, args = []) {
     return new Promise((resolve, reject) => {
-        const process = spawn("python", [path.resolve(scriptPath), ...args]);
+        let pythonExec = "python";
+        const venvPython = path.resolve("venv/bin/python");
+        const python3Exec = "python3";
+
+        if (fs.existsSync(venvPython)) {
+            pythonExec = venvPython;
+        } else {
+            pythonExec = python3Exec;
+        }
+
+        const process = spawn(pythonExec, [path.resolve(scriptPath), ...args]);
         let stdout = "";
         let stderr = "";
 

@@ -14,76 +14,123 @@ import {
   FlaskConical
 } from "lucide-react";
 
-const ModelCard = ({ name, type, prediction, icon: Icon, onPredict, onTrain, onBacktest, loading, status, backtestResult }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all group">
-    <div className="flex justify-between items-start mb-6">
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-xl bg-${type === 'lstm' ? 'purple' : type === 'xgb' ? 'blue' : 'emerald'}-50 text-${type === 'lstm' ? 'purple' : type === 'xgb' ? 'blue' : 'emerald'}-600 group-hover:scale-110 transition-transform`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div>
-          <h3 className="font-bold text-gray-900 text-lg">{name}</h3>
-          <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">{type.toUpperCase()}</p>
-        </div>
-      </div>
-      <div className={`px-3 py-1 rounded-full text-xs font-semibold ${status === 'Training' || status === 'Backtesting' ? 'bg-amber-50 text-amber-600 animate-pulse' : 'bg-gray-50 text-gray-500'}`}>
-        {status}
-      </div>
-    </div>
+const ModelCard = ({ name, type, predictionData, icon: Icon, onPredict, onTrain, onBacktest, loading, status, backtestResult }) => {
+  const prediction = predictionData?.predicted_number || (typeof predictionData === 'string' ? predictionData : null);
+  const confidence = predictionData?.confidence;
+  const topProbs = predictionData?.top_probabilities;
 
-    <div className="mb-8">
-      <div className="text-sm text-gray-400 mb-2 uppercase tracking-widest font-bold">Predicted Number</div>
-      <div className="flex gap-2">
-        {prediction ? (
-          prediction.split('').map((digit, i) => (
-            <div key={i} className="w-12 h-16 bg-gray-900 text-white rounded-xl flex items-center justify-center text-3xl font-black shadow-lg">
-              {digit}
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${type === 'lstm' ? 'bg-purple-50 text-purple-600' : type === 'xgb' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} group-hover:scale-110 transition-transform`}>
+              <Icon className="w-6 h-6" />
             </div>
-          ))
-        ) : (
-          <div className="text-gray-300 italic text-lg py-3">No prediction ready</div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">{name}</h3>
+              <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">{type.toUpperCase()}</p>
+            </div>
+          </div>
+          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${status === 'Training' || status === 'Backtesting' ? 'bg-amber-50 text-amber-600 animate-pulse' : 'bg-gray-50 text-gray-500'}`}>
+            {status}
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-gray-400 uppercase tracking-widest font-bold">Predicted Number</span>
+            {confidence?.overall && (
+              <span className="text-xs font-black px-2.5 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                {confidence.overall}% Confidence
+              </span>
+            )}
+          </div>
+          <div className="flex gap-3">
+            {prediction ? (
+              prediction.split('').map((digit, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center">
+                  <div className="w-full h-16 bg-gray-900 text-white rounded-xl flex items-center justify-center text-3xl font-black shadow-lg">
+                    {digit}
+                  </div>
+                  {confidence?.[`d${i+1}`] && (
+                    <span className="text-[10px] font-bold text-gray-500 mt-1.5">
+                      D{i+1}: {confidence[`d${i+1}`]}%
+                    </span>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="w-full text-gray-300 italic text-sm py-4 bg-gray-50 rounded-xl text-center font-medium">No prediction generated yet</div>
+            )}
+          </div>
+        </div>
+
+        {/* Neural Network Probability Distribution Breakdown */}
+        {topProbs && (
+          <div className="mb-6 p-4 bg-purple-50/60 rounded-xl border border-purple-100">
+            <div className="text-xs font-black text-purple-900 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-purple-600" />
+              Softmax Digit Probabilities (Top 3)
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-[11px]">
+              {['d1', 'd2', 'd3'].map((posKey, posIdx) => (
+                <div key={posKey} className="bg-white/80 p-2 rounded-lg border border-purple-100 shadow-2xs">
+                  <div className="font-bold text-purple-800 mb-1">Pos {posIdx + 1}</div>
+                  {topProbs[posKey]?.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] text-gray-600 font-medium my-0.5">
+                      <span className="font-bold text-gray-900">'{item.digit}'</span>
+                      <span className="text-purple-700">{item.prob}%</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {backtestResult && (
+          <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+            <div className="flex justify-between text-xs font-bold mb-2">
+              <span className="text-emerald-600 uppercase">Backtest Accuracy (Last 50)</span>
+              <span className="text-emerald-700">{backtestResult.accuracy_pct}% Hits</span>
+            </div>
+            <div className="text-[10px] text-emerald-600 font-medium">Avg Digits Matched: {backtestResult.avg_digits_matched.toFixed(2)} / 3</div>
+          </div>
         )}
       </div>
-    </div>
 
-    {backtestResult && (
-      <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-        <div className="flex justify-between text-xs font-bold mb-2">
-          <span className="text-emerald-600 uppercase">Backtest Accuracy (Last 50)</span>
-          <span className="text-emerald-700">{backtestResult.accuracy_pct}% Hits</span>
+      <div>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <button 
+            onClick={() => onPredict(type)}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-50 hover:bg-gray-100 disabled:opacity-50 text-gray-700 font-bold rounded-xl transition-colors border border-gray-100 text-sm"
+          >
+            <Target className="w-4 h-4" />
+            Predict
+          </button>
+          <button 
+            onClick={() => onTrain(type)}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-sm hover:shadow-md text-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading && status === 'Training' ? 'animate-spin' : ''}`} />
+            Train
+          </button>
         </div>
-        <div className="text-[10px] text-emerald-600 font-medium">Avg Digits Matched: {backtestResult.avg_digits_matched.toFixed(2)} / 3</div>
+        <button 
+          onClick={() => onBacktest(type)}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-sm text-sm"
+        >
+          <FlaskConical className="w-4 h-4" />
+          Run Historical Backtest
+        </button>
       </div>
-    )}
-
-    <div className="grid grid-cols-2 gap-3 mb-3">
-      <button 
-        onClick={() => onPredict(type)}
-        disabled={loading}
-        className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-50 hover:bg-gray-100 disabled:opacity-50 text-gray-700 font-bold rounded-xl transition-colors border border-gray-100"
-      >
-        <Target className="w-4 h-4" />
-        Predict
-      </button>
-      <button 
-        onClick={() => onTrain(type)}
-        disabled={loading}
-        className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-sm hover:shadow-md"
-      >
-        <RefreshCw className={`w-4 h-4 ${loading && status === 'Training' ? 'animate-spin' : ''}`} />
-        Train
-      </button>
     </div>
-    <button 
-      onClick={() => onBacktest(type)}
-      disabled={loading}
-      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-sm"
-    >
-      <FlaskConical className="w-4 h-4" />
-      Run Historical Backtest
-    </button>
-  </div>
-);
+  );
+};
 
 export default function AIPredictorDashboard() {
   const [predictions, setPredictions] = useState({ rf: null, xgb: null, lstm: null });
@@ -103,7 +150,7 @@ export default function AIPredictorDashboard() {
       const res = await fetch(`/api/ml?action=predict&model=${type}`);
       const data = await res.json();
       if (data.predicted_number) {
-        setPredictions(prev => ({ ...prev, [type]: data.predicted_number }));
+        setPredictions(prev => ({ ...prev, [type]: data }));
         showNotification(`${type.toUpperCase()} Prediction generated!`);
       } else {
         const errorMsg = data.error || "Prediction failed";

@@ -5,8 +5,11 @@ import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { Eye, EyeOff } from "lucide-react";
+
 export default function LoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -61,14 +64,24 @@ export default function LoginPage() {
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Password</label>
-            <input
-              name="password"
-              type="password"
-              required
-              placeholder="••••••••"
-              onChange={handleChange}
-              className="w-full px-6 py-4 glass rounded-2xl border-white/5 focus:border-primary/50 transition-colors outline-none text-white"
-            />
+            <div className="relative">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="••••••••"
+                onChange={handleChange}
+                className="w-full px-6 py-4 glass rounded-2xl border-white/5 focus:border-primary/50 transition-colors outline-none text-white pr-14"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white p-2 transition-colors focus:outline-none"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5 text-primary" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           
           <button 

@@ -84,24 +84,61 @@ def predict_lottery(model_type='rf'):
 
         elif model_type == 'lstm':
             import tensorflow as tf
-            model = tf.keras.models.load_model(model_path, compile=False)
+            model_path_h5 = 'python/models/lottery_model_lstm.h5'
+            model_path_keras = 'python/models/lottery_model_lstm.keras'
+            model_p = model_path_keras if os.path.exists(model_path_keras) else model_path_h5
+            
+            model = tf.keras.models.load_model(model_p, compile=False)
             scaler = joblib.load('python/models/lottery_scaler.pkl')
             
-            # Features for LSTM: sequence of last 10 draws (all 12 features)
             seq_length = 10
             features = ['digit_1', 'digit_2', 'digit_3', 'roll_d1', 'roll_d2', 'roll_d3', 'dist_d1', 'dist_d2', 'dist_d3', 'is_even_d1', 'is_even_d2', 'is_even_d3']
             last_draws = df[features].tail(seq_length).values
             last_draws_scaled = scaler.transform(last_draws)
             
             X_lstm = np.array([last_draws_scaled]) 
-            prediction_scaled = model.predict(X_lstm, verbose=0) # Output shape (1, 3)
+            predictions = model.predict(X_lstm, verbose=0)
             
-            # Inverse transform: create a dummy array with same number of features
-            # as the scaler was trained on (12)
-            dummy = np.zeros((1, len(features)))
-            dummy[0, :3] = prediction_scaled[0]
-            prediction = scaler.inverse_transform(dummy)
-            predicted_digits = [int(round(np.clip(d, 0, 9))) for d in prediction[0][:3]]
+            if isinstance(predictions, list) and len(predictions) == 3:
+                p1, p2, p3 = predictions[0][0], predictions[1][0], predictions[2][0]
+                
+                digit1 = int(np.argmax(p1))
+                digit2 = int(np.argmax(p2))
+                digit3 = int(np.argmax(p3))
+                
+                conf1 = float(np.max(p1) * 100)
+                conf2 = float(np.max(p2) * 100)
+                conf3 = float(np.max(p3) * 100)
+                
+                top3_d1 = [{"digit": int(idx), "prob": round(float(prob * 100), 1)} for idx, prob in sorted(enumerate(p1), key=lambda x: x[1], reverse=True)[:3]]
+                top3_d2 = [{"digit": int(idx), "prob": round(float(prob * 100), 1)} for idx, prob in sorted(enumerate(p2), key=lambda x: x[1], reverse=True)[:3]]
+                top3_d3 = [{"digit": int(idx), "prob": round(float(prob * 100), 1)} for idx, prob in sorted(enumerate(p3), key=lambda x: x[1], reverse=True)[:3]]
+
+                predicted_number = f"{digit1}{digit2}{digit3}"
+                
+                return {
+                    "model": model_type,
+                    "predicted_number": predicted_number,
+                    "target_date": target_date.strftime("%Y-%m-%d"),
+                    "confidence": {
+                        "d1": round(conf1, 1),
+                        "d2": round(conf2, 1),
+                        "d3": round(conf3, 1),
+                        "overall": round((conf1 + conf2 + conf3) / 3, 1)
+                    },
+                    "top_probabilities": {
+                        "d1": top3_d1,
+                        "d2": top3_d2,
+                        "d3": top3_d3
+                    }
+                }
+            else:
+                # Legacy fallback for 1D output
+                dummy = np.zeros((1, len(features)))
+                dummy[0, :3] = predictions[0]
+                prediction = scaler.inverse_transform(dummy)
+                predicted_digits = [int(round(np.clip(d, 0, 9))) for d in prediction[0][:3]]
+                predicted_number = "".join(map(str, predicted_digits))
 
         predicted_number = "".join(map(str, predicted_digits))
 

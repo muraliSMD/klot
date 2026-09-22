@@ -25,12 +25,11 @@ export default function HistoryPage() {
     .then(([perfData, historyData]) => {
         setPerformanceHistory(perfData.results || []);
         
-        // Handle various API response shapes for official history
         const offItems = Array.isArray(historyData) ? historyData : (historyData.items || historyData.results || []);
         setOfficialHistory(offItems);
     })
     .catch(err => {
-        console.error("Error fetching data:", err);
+        console.error("Error fetching history data:", err);
     })
     .finally(() => setLoading(false));
   }, []);
@@ -56,183 +55,221 @@ export default function HistoryPage() {
     return matchesName && matchesSearch;
   });
 
+  // Helper to parse & render winning ticket number cleanly
+  const renderWinningNumber = (raw) => {
+    if (!raw) return <span className="text-white/40 font-mono text-xs italic">Pending Draw</span>;
+    
+    const cleaned = String(raw).trim();
+    // Check if format is like "BV 635205" or "BT-72 635205"
+    const match = cleaned.match(/^([A-Z0-9-]{2,7})\s+([0-9]{3,6})$/i) || cleaned.match(/^([A-Z]{2,4})\s*-\s*([0-9]+)\s+([0-9]{3,6})$/i);
+    
+    if (match) {
+      const series = match[1];
+      const digits = match[2] || match[3];
+      return (
+        <div className="inline-flex items-center gap-2 bg-[#10131c] border border-white/10 px-3 py-1.5 rounded-xl shadow-lg">
+          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">
+            {series}
+          </span>
+          <span className="font-mono font-black text-amber-300 tracking-widest text-sm md:text-base">
+            {digits}
+          </span>
+        </div>
+      );
+    }
+
+    // Fallback: extract digits and non-digits
+    const digitsOnly = cleaned.replace(/\D/g, "");
+    const lettersOnly = cleaned.replace(/[^A-Z]/gi, "").slice(0, 4) || "KL";
+
+    if (digitsOnly.length > 0) {
+      return (
+        <div className="inline-flex items-center gap-2 bg-[#10131c] border border-white/10 px-3 py-1.5 rounded-xl shadow-lg">
+          <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">
+            {lettersOnly}
+          </span>
+          <span className="font-mono font-black text-amber-300 tracking-widest text-sm md:text-base">
+            {digitsOnly}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <span className="font-mono font-black text-amber-300 tracking-widest text-sm px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl">
+        {cleaned}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-bold mb-2">
+            <span>🕒</span> Historical Results & Performance Tracker
+          </div>
           <h1 className="text-4xl font-black font-outfit tracking-tight">History & Performance</h1>
-          <p className="text-muted-foreground">View your prediction accuracy and official lottery results.</p>
+          <p className="text-muted-foreground font-medium">Verify your prediction accuracy against official lottery draw records.</p>
         </div>
         
-        {/* Tabs */}
-        <div className="bg-white/5 p-1 rounded-xl flex gap-1 border border-white/10">
+        {/* Navigation Tabs */}
+        <div className="bg-white/5 p-1 rounded-2xl flex gap-1 border border-white/10 self-start sm:self-auto">
             <button
+                type="button"
                 onClick={() => setActiveTab("performance")}
-                className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 ${
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 ${
                     activeTab === "performance" 
-                    ? "bg-purple-600 text-primary-foreground shadow-lg" 
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30" 
                     : "text-muted-foreground hover:text-white hover:bg-white/5"
                 }`}
             >
                 My Performance
             </button>
             <button
+                type="button"
                 onClick={() => setActiveTab("official")}
-                className={`px-6 py-2 rounded-lg font-bold text-sm transition-all duration-300 ${
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-300 ${
                     activeTab === "official" 
-                    ? "bg-purple-600 text-primary-foreground shadow-lg" 
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30" 
                     : "text-muted-foreground hover:text-white hover:bg-white/5"
                 }`}
             >
-                Official History
+                Official Draw Records
             </button>
         </div>
       </div>
 
-      <div className="glass-card overflow-hidden rounded-[2.5rem]">
-        <div className="p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h3 className="text-xl font-bold font-outfit">
-            {activeTab === "performance" ? "Prediction Records" : "Official Draw Results"}
-          </h3>
-          <div className="flex flex-wrap gap-2">
+      {/* Main Table Card Container */}
+      <div className="glass-card overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl">
+        
+        {/* Filter Controls Header */}
+        <div className="p-6 sm:p-8 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.02]">
+          <div>
+            <h3 className="text-xl font-bold font-outfit text-white">
+              {activeTab === "performance" ? "Prediction Accuracy Ledger" : "Official Kerala Draw History"}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Showing {filteredData?.length || 0} historical entries
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
             {/* Filter Controls */}
             <select
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50 transition-colors text-white [&>option]:text-black"
+                className="bg-[#121520] border border-white/15 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-purple-500 transition-colors text-white cursor-pointer"
             >
                 {uniqueNames.map(name => (
-                    <option key={name} value={name}>{name}</option>
+                    <option key={name} value={name} className="bg-[#0d0f15] text-white">{name}</option>
                 ))}
             </select>
 
             <input 
               type="text" 
-              placeholder="Search date or name..." 
+              placeholder="Search date or lottery..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-primary/50 transition-colors text-white placeholder:text-muted-foreground"
+              className="bg-[#121520] border border-white/15 rounded-xl px-4 py-2.5 text-xs font-medium outline-none focus:border-purple-500 transition-colors text-white placeholder:text-muted-foreground w-full sm:w-auto"
             />
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Table Content */}
+        <div className="overflow-x-auto scrollbar-hide">
           {loading ? (
              <div className="p-20 flex flex-col items-center justify-center gap-4">
-                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                <p className="text-muted-foreground animate-pulse font-bold">Loading Data...</p>
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                <p className="text-muted-foreground animate-pulse font-bold text-sm">Loading historical ledger...</p>
              </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
-                <tr className="bg-white/5">
-                  <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Date</th>
-                  <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Lottery</th>
+                <tr className="bg-white/5 border-b border-white/5">
+                  <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">Date</th>
+                  <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">Lottery Name</th>
                   
                   {activeTab === "performance" && (
-                    <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Your Prediction</th>
+                    <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">Predicted Tickets</th>
                   )}
 
                   {activeTab === "performance" && (
-                     <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">3-Digit Patterns</th>
+                     <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">3D Patterns</th>
                   )}
                   
-                  <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Winning Number</th>
+                  <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">Winning Ticket</th>
                   
                   {activeTab === "performance" && (
-                      <th className="p-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Result</th>
+                      <th className="p-5 sm:p-6 text-xs font-black uppercase tracking-widest text-muted-foreground">Status</th>
                   )}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/5">
                 {filteredData?.map((item, index) => (
-                  <tr key={index} className="border-t border-white/5 hover:bg-white/5 transition-colors group">
+                  <tr key={index} className="hover:bg-white/[0.03] transition-colors group">
                      {/* Date */}
-                     <td className="p-6 text-muted-foreground font-medium">
-                      {activeTab === "performance" ? item.date : (item.date || item.draw_date)}
+                     <td className="p-5 sm:p-6 text-xs sm:text-sm font-bold text-white/70 font-mono">
+                      {activeTab === "performance" ? item.date : (item.date || item.draw_date || "N/A")}
                     </td>
                     
                     {/* Lottery Name */}
-                    <td className="p-6">
-                      <div className="font-bold font-outfit group-hover:text-primary transition-colors">
-                        {activeTab === "performance" ? item.lotteryName : (item.name || item.draw_name)}
+                    <td className="p-5 sm:p-6">
+                      <div className="font-bold font-outfit text-sm sm:text-base text-white group-hover:text-purple-300 transition-colors">
+                        {activeTab === "performance" ? item.lotteryName : (item.name || item.draw_name || "Kerala Draw")}
                       </div>
                     </td>
 
                     {/* Prediction (Only for Performance Tab) */}
                     {activeTab === "performance" && (
-                        <td className="p-6">
-                            <div className="flex flex-wrap gap-2">
-                                {item.predictedNumbers?.map((num, i) => {
-                                    // Find which algorithm generated this number
-                                    // algorithms is a Map: { "Positional": "123,456", "Matrix": "789" }
-                                    // We need to reverse lookup or check inclusion
-                                    let algoName = "Unknown";
-                                    if (item.algorithms) {
-                                        for (const [algo, numbers] of Object.entries(item.algorithms)) {
-                                            if (numbers && numbers.includes(num)) {
-                                                algoName = algo;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    
-                                    return (
-                                        <div key={i} className="group relative">
-                                            <span className="px-2 py-1 bg-white/5 rounded text-xs font-mono border border-white/10 cursor-help">
-                                                {num}
-                                            </span>
-                                            {/* Tooltip for Algorithm */}
-                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                {algoName}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
+                        <td className="p-5 sm:p-6">
+                            <div className="flex flex-wrap gap-1.5 max-w-xs">
+                                {item.predictedNumbers?.slice(0, 5).map((num, i) => (
+                                    <span key={i} className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/25 text-purple-200 rounded-lg text-xs font-mono font-bold shadow-sm">
+                                        {num}
+                                    </span>
+                                ))}
                             </div>
                         </td>
                     )}
 
                     {/* 3-Digit Patterns (Only for Performance Tab) */}
                      {activeTab === "performance" && (
-                        <td className="p-6">
-                            <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                {item.threeDigit ? Object.entries(item.threeDigit).map(([key, val], i) => (
-                                     <div key={i} className="group relative">
-                                        <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[10px] font-mono border border-blue-500/20 cursor-help">
-                                            {val}
-                                        </span>
-                                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                            {key}
-                                        </span>
-                                     </div>
+                        <td className="p-5 sm:p-6">
+                            <div className="flex flex-wrap gap-1.5 max-w-[180px]">
+                                {item.threeDigit ? Object.entries(item.threeDigit).slice(0, 4).map(([key, val], i) => (
+                                     <span key={i} className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded-md text-[11px] font-mono font-bold border border-blue-500/20" title={key}>
+                                         {val}
+                                     </span>
                                 )) : <span className="text-muted-foreground text-xs">-</span>}
                             </div>
                         </td>
                      )}
 
                     {/* Winning Number */}
-                    <td className="p-6">
-                      <span className="px-4 py-2 bg-primary/10 rounded-xl text-primary font-black border border-primary/20 tracking-widest">
-                        {activeTab === "performance" 
-                            ? item.winningNumber 
-                            : (item.first_ticket || item.firstprize || "XXXXXX")}
-                      </span>
+                    <td className="p-5 sm:p-6">
+                      {renderWinningNumber(
+                        activeTab === "performance" 
+                          ? item.winningNumber 
+                          : (item.first_ticket || item.firstprize || "XXXXXX")
+                      )}
                     </td>
 
                     {/* Result Status (Only for Performance Tab) */}
                     {activeTab === "performance" && (
-                        <td className="p-6">
+                        <td className="p-5 sm:p-6">
                             {item.status === "Win" ? (
-                                <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black uppercase rounded-full border border-green-500/20">
+                                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase rounded-full border border-emerald-500/40 shadow-lg shadow-emerald-500/10">
                                     WIN 🎉
                                 </span>
                             ) : item.status === "Loss" ? (
-                                <span className="px-3 py-1 bg-red-500/10 text-red-500 text-[10px] font-black uppercase rounded-full border border-red-500/20">
+                                <span className="px-3 py-1 bg-rose-500/15 text-rose-400 text-xs font-black uppercase rounded-full border border-rose-500/30">
                                     MISS
                                 </span>
                             ) : (
-                                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 text-[10px] font-black uppercase rounded-full border border-yellow-500/20">
+                                <span className="px-3 py-1 bg-amber-500/15 text-amber-400 text-xs font-black uppercase rounded-full border border-amber-500/30">
                                     PENDING
                                 </span>
                             )}
@@ -243,8 +280,8 @@ export default function HistoryPage() {
                 
                 {filteredData?.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === "performance" ? 5 : 3} className="p-20 text-center text-muted-foreground font-bold">
-                      No records found.
+                    <td colSpan={activeTab === "performance" ? 6 : 3} className="p-16 text-center text-muted-foreground font-bold text-sm">
+                      No matching records found in ledger.
                     </td>
                   </tr>
                 )}

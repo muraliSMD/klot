@@ -1,27 +1,26 @@
 import { NextResponse } from "next/server";
-import axios from "axios";
+import { fetchWithCache } from "@/app/lib/apiCache";
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.max(1, Math.min(500, Number(searchParams.get("limit")) || 100));
 
-    const extResp = await axios.get("https://indialotteryapi.com/wp-json/klr/v1/history");
-    const extData = extResp.data;
+    let extData = null;
+    try {
+      extData = await fetchWithCache("https://indialotteryapi.com/wp-json/klr/v1/history?limit=300", 5 * 60 * 1000);
+    } catch (err) {
+      console.warn("Analysis route fetch warning:", err.message);
+      extData = [];
+    }
 
     let items = [];
     if (Array.isArray(extData)) {
       items = extData;
-    } else if (Array.isArray(extData.items)) {
+    } else if (Array.isArray(extData?.items)) {
       items = extData.items;
     } else if (extData && typeof extData === "object" && Array.isArray(extData.results)) {
       items = extData.results;
-    } else {
-      return NextResponse.json({
-        ok: false,
-        message: "Unexpected Kerala API response shape.",
-        preview: JSON.stringify(extData).slice(0, 1000),
-      }, { status: 500 });
     }
 
     items = items.slice(0, limit);
@@ -29,6 +28,7 @@ export async function GET(req) {
     const firstPrizes = items.map((it) => {
       if (!it || typeof it !== "object") return null;
       const possible =
+        (it.first && typeof it.first === "object" ? it.first.ticket : null) ||
         it.first_ticket ||
         it.first_ticket_number ||
         it.firstprize ||
@@ -46,9 +46,9 @@ export async function GET(req) {
     if (cleaned.length === 0) {
       return NextResponse.json({
         ok: true,
-        freq: Array.from({length:10}, (_,i) => ({digit: i, count: 0})),
+        freq: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0 })),
         totalDigits: 0,
-        docs: firstPrizes.slice(0, 10),
+        docs: [],
       });
     }
 
@@ -73,6 +73,13 @@ export async function GET(req) {
       docs: cleaned,
     });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    console.error("Analysis route error:", err.message);
+    return NextResponse.json({
+      ok: false,
+      freq: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0 })),
+      totalDigits: 0,
+      docs: [],
+      error: err.message
+    });
   }
 }

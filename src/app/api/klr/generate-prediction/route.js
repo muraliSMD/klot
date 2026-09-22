@@ -8,38 +8,82 @@ import path from "path";
 
 const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
 
-// --- Helper Functions (Moved outside POST for better scoping) ---
+// --- Advanced Positional Markov & Recency Analysis ---
 
-// 1. Analyze Positional Frequency (0=100s, 1=10s, 2=1s)
-const getPositionalHotness = (drawList) => {
-    const counts = [{0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}, {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}, {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}];
-    
-    const limit = Math.min(drawList.length, 50);
-    for(let i=0; i<limit; i++) {
-        const d = drawList[i];
-        if(d) {
-            const ticket = d.first_ticket || d.result || (d.mc && d.mc[0]);
-            if(ticket) {
-                const num = ticket.toString().replace(/\D/g, '').slice(-3);
-                if(num.length === 3) {
-                    counts[0][num[0]]++; // 100s
-                    counts[1][num[1]]++; // 10s
-                    counts[2][num[2]]++; // 1s
+const analyzePositionalMarkov = (drawList) => {
+    const validDraws = (drawList || []).filter(d => {
+        if (!d) return false;
+        const t = d.first_ticket || d.result || (d.mc && d.mc[0]);
+        return t && /\d/.test(t);
+    });
+
+    const posScores = [
+        {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0},
+        {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0},
+        {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}
+    ];
+
+    const markovTransitions = [
+        Array.from({length: 10}, () => Array(10).fill(0)),
+        Array.from({length: 10}, () => Array(10).fill(0)),
+        Array.from({length: 10}, () => Array(10).fill(0))
+    ];
+
+    const seriesCounts = {};
+    const limit = Math.min(validDraws.length, 100);
+
+    for (let i = 0; i < limit; i++) {
+        const rawTicket = (validDraws[i].first_ticket || validDraws[i].result || (validDraws[i].mc && validDraws[i].mc[0])).toString();
+        const digits = rawTicket.replace(/\D/g, '').slice(-3);
+
+        const seriesMatch = rawTicket.match(/([A-Z]{2})/i);
+        if (seriesMatch) {
+            const s = seriesMatch[1].toUpperCase();
+            seriesCounts[s] = (seriesCounts[s] || 0) + (1.0 / (i + 1));
+        }
+
+        if (digits.length === 3) {
+            const d0 = parseInt(digits[0]);
+            const d1 = parseInt(digits[1]);
+            const d2 = parseInt(digits[2]);
+
+            // Exponential Decay Weight: 0.96^i for daily recency
+            const weight = Math.pow(0.96, i);
+
+            posScores[0][d0] += weight;
+            posScores[1][d1] += weight;
+            posScores[2][d2] += weight;
+
+            // Transition Markov matrix between draw i and next draw i+1
+            if (i < limit - 1) {
+                const prevTicket = (validDraws[i+1].first_ticket || validDraws[i+1].result || (validDraws[i+1].mc && validDraws[i+1].mc[0])).toString();
+                const prevDigits = prevTicket.replace(/\D/g, '').slice(-3);
+                if (prevDigits.length === 3) {
+                    markovTransitions[0][parseInt(prevDigits[0])][d0] += weight;
+                    markovTransitions[1][parseInt(prevDigits[1])][d1] += weight;
+                    markovTransitions[2][parseInt(prevDigits[2])][d2] += weight;
                 }
             }
         }
     }
-    
-    return counts.map(posCounts => {
-         return Object.entries(posCounts)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 2)
-            .map(([digit]) => digit);
-    });
+
+    const aBoard = Object.entries(posScores[0]).sort(([,a], [,b]) => b - a).map(([d]) => d);
+    const bBoard = Object.entries(posScores[1]).sort(([,a], [,b]) => b - a).map(([d]) => d);
+    const cBoard = Object.entries(posScores[2]).sort(([,a], [,b]) => b - a).map(([d]) => d);
+    const topSeries = Object.entries(seriesCounts).sort(([,a], [,b]) => b - a).map(([s]) => s).slice(0, 3);
+
+    return {
+        posScores,
+        markovTransitions,
+        aBoard,
+        bBoard,
+        cBoard,
+        topSeries: topSeries.length > 0 ? topSeries : ["BV", "BT", "SS"]
+    };
 };
 
 // 2. Smart Matrix Generator v2
-const generateSmartMatrix = (seed3, historyList = []) => {
+const generateSmartMatrix = (seed3, historyList = [], markovData = null) => {
     const seed = parseInt(seed3);
     const candidates = new Set();
     
@@ -61,11 +105,10 @@ const generateSmartMatrix = (seed3, historyList = []) => {
         }
     }
     
-    if (historyList.length > 0) {
-        const hotDigits = getPositionalHotness(historyList);
-        hotDigits[0].forEach(d1 => {
-            hotDigits[1].forEach(d2 => {
-                hotDigits[2].forEach(d3 => {
+    if (markovData) {
+        markovData.aBoard.slice(0, 3).forEach(d1 => {
+            markovData.bBoard.slice(0, 3).forEach(d2 => {
+                markovData.cBoard.slice(0, 3).forEach(d3 => {
                     candidates.add(parseInt(`${d1}${d2}${d3}`));
                 });
             });
@@ -75,12 +118,9 @@ const generateSmartMatrix = (seed3, historyList = []) => {
     return Array.from(candidates).map(n => n.toString().padStart(3, '0')).slice(0, 20);
 };
 
-// 3. Main Generation Logic
+// 3. Main Generation Logic with Unified Markov Consensus
 const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction = null) => {
     if (!drawList || drawList.length < 1) return null;
-
-    const latestDraw = drawList[0]; 
-    const previousDraw = drawList[1];
 
     const getWinningNumber = (draw) => {
         if (!draw) return null;
@@ -89,6 +129,12 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
         if (draw.mc && Array.isArray(draw.mc) && draw.mc.length > 0) return draw.mc[0];
         return null;
     };
+
+    const validDraws = drawList.filter(d => getWinningNumber(d) !== null);
+    if (validDraws.length < 1) return null;
+
+    const latestDraw = validDraws[0]; 
+    const previousDraw = validDraws[1];
 
     const winningNumber = getWinningNumber(latestDraw);
     if (!winningNumber) return null;
@@ -110,9 +156,9 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
 
     const algo1 = applyShift(numericPart, trend);
     let velocityTrend = [...trend];
-    if (drawList[2]) {
-        const d2 = getWinningNumber(drawList[1])?.replace(/\D/g, '');
-        const d3 = getWinningNumber(drawList[2])?.replace(/\D/g, '');
+    if (validDraws[2]) {
+        const d2 = getWinningNumber(validDraws[1])?.replace(/\D/g, '');
+        const d3 = getWinningNumber(validDraws[2])?.replace(/\D/g, '');
         if (d2 && d3 && d2.length === d3.length) {
             const trend2 = d2.split('').map((d, i) => (parseInt(d) - parseInt(d3[i]) + 10) % 10);
             velocityTrend = trend.map((t, i) => Math.round((t + trend2[i]) / 2));
@@ -132,7 +178,13 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
     const trendFirst3 = trend.slice(0, 3);
     const trendLast3 = trend.slice(-3);
     const algo8 = applyShift(first3, trendFirst3) + applyShift(last3, trendLast3);
-    const hotFirstDigit = drawList.length > 0 ? getPositionalHotness(drawList)[0][0] : first3[0];
+
+    const markovData = analyzePositionalMarkov(validDraws);
+    const aBoard = markovData.aBoard;
+    const bBoard = markovData.bBoard;
+    const cBoard = markovData.cBoard;
+
+    const hotFirstDigit = aBoard[0] || first3[0];
     const algo9 = (hotFirstDigit + first3.slice(1)) + last3;
 
     const digitArray = last3.split('').map(Number);
@@ -143,7 +195,7 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
     const algo3D_5 = digitArray.map(d => (d - 1 + 10) % 10).join('');
     const algo3D_6 = digitArray.map(d => (d + 5) % 10).join('');
     const algo3D_7 = digitArray.map(d => (d + 2) % 10).join('');
-    const algo3D_8 = (drawList.length > 0 ? getPositionalHotness(drawList)[0][0] : ((digitArray[0]+5)%10)) + last3.slice(1);
+    const algo3D_8 = (aBoard[0] || ((digitArray[0]+5)%10)) + last3.slice(1);
     const algo3D_9 = last3.slice(-1) + last3.slice(0, 2); 
     const algo3D_10 = `${(digitArray[0] + trendLast3[0]) % 10}${digitArray[1]}${(digitArray[2] + trendLast3[2]) % 10}`;
     const algo3D_11 = `${(digitArray[0] + trendLast3[0]) % 10}${(digitArray[1] + trendLast3[1]) % 10}${digitArray[2]}`;
@@ -165,40 +217,109 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
         }
         return dgs.map(pos => pos.length === 0 ? 5 : pos.sort((a,b)=>a-b)[Math.floor(pos.length/2)]);
     };
-    const algo3D_17 = getPositionalMedian(drawList).join('');
+    const algo3D_17 = getPositionalMedian(validDraws).join('');
 
     const allCandidates = [
         algo1.slice(-3), algo2.slice(-3), algo3.slice(-3), algo4.slice(-3), algo5.slice(-3), algo6.slice(-3), algo7.slice(-3), algo8.slice(-3), algo9.slice(-3),
         algo3D_1, algo3D_2, algo3D_3, algo3D_4, algo3D_5, algo3D_6, algo3D_7, algo3D_8, algo3D_9, algo3D_10, algo3D_11, algo3D_12, algo3D_13, algo3D_14, algo3D_15, algo3D_16, algo3D_17
     ];
 
-    const freqMap = {};
-    allCandidates.forEach(num => { freqMap[num] = (freqMap[num] || 0) + 1; });
+    // Candidate scoring using Positional Recency Weighting & Markov Matrix
+    const candidateScores = {};
+    const last3Digits = last3.split('').map(Number);
 
-    // Boosts
-    [algo9.slice(-3), algo3D_10, algo3D_8].forEach(num => { if(freqMap[num]) freqMap[num] += 2.0; });
+    aBoard.slice(0, 5).forEach(a => {
+        bBoard.slice(0, 5).forEach(b => {
+            cBoard.slice(0, 5).forEach(c => {
+                const num = `${a}${b}${c}`;
+                const da = parseInt(a), db = parseInt(b), dc = parseInt(c);
+                
+                let score = markovData.posScores[0][da] * 1.5 +
+                            markovData.posScores[1][db] * 1.5 +
+                            markovData.posScores[2][dc] * 1.5 +
+                            markovData.markovTransitions[0][last3Digits[0]][da] +
+                            markovData.markovTransitions[1][last3Digits[1]][db] +
+                            markovData.markovTransitions[2][last3Digits[2]][dc];
+
+                candidateScores[num] = score;
+            });
+        });
+    });
+
+    // Add candidate algorithm boosts
+    allCandidates.forEach(num => {
+        if (num && num.length === 3) {
+            candidateScores[num] = (candidateScores[num] || 0) + 3.0;
+        }
+    });
+
+    // Boost AI prediction candidate if available
     const aiNum = aiPrediction?.predictedNumber?.slice(-3);
-    if (aiNum && freqMap[aiNum]) { freqMap[aiNum] += 5.0; }
-
-    const candidateMap = {
-        [algo9.slice(-3)]: "Composite (Hot Series)", [algo3D_8]: "Flow Pair (Fix)", [algo3D_10]: "Repeat Middle", [algo3D_12]: "Symmetric Drift", [algo3D_9]: "Crossing"
-    };
+    if (aiNum && aiNum.length === 3) {
+        candidateScores[aiNum] = (candidateScores[aiNum] || 0) + 8.0;
+    }
 
     if (algorithmStats && Array.isArray(algorithmStats)) {
         algorithmStats.forEach(stat => {
             if (stat.hits > 0) {
-                if (stat.algoKey === "Flow Pair (Fix)" && freqMap[algo3D_8]) freqMap[algo3D_8] += (stat.hits * 0.5);
-                if (stat.algoKey === "Repeat Middle" && freqMap[algo3D_10]) freqMap[algo3D_10] += (stat.hits * 0.5);
+                if (stat.algoKey === "Flow Pair (Fix)" && candidateScores[algo3D_8]) candidateScores[algo3D_8] += (stat.hits * 0.5);
+                if (stat.algoKey === "Repeat Middle" && candidateScores[algo3D_10]) candidateScores[algo3D_10] += (stat.hits * 0.5);
             }
         });
     }
 
-    const sortedConsensus = Object.entries(freqMap).sort(([, a], [, b]) => b - a).map(([num]) => num);
-    const topThree = sortedConsensus.slice(0, 3); // Strictly 3
+    // Rank candidates by Positional Markov Consensus Score
+    const sortedConsensus = Object.entries(candidateScores)
+        .sort(([, a], [, b]) => b - a)
+        .map(([num]) => num);
+
+    const topThree = sortedConsensus.slice(0, 3); // Top 3 consensus picks
+
+    // Generate Boxed / Any-Order Permutations for Top Picks
+    const getPermutations = (numStr) => {
+        if (!numStr || numStr.length !== 3) return [numStr];
+        const chars = numStr.split('');
+        const perms = new Set();
+        perms.add(`${chars[0]}${chars[1]}${chars[2]}`);
+        perms.add(`${chars[0]}${chars[2]}${chars[1]}`);
+        perms.add(`${chars[1]}${chars[0]}${chars[2]}`);
+        perms.add(`${chars[1]}${chars[2]}${chars[0]}`);
+        perms.add(`${chars[2]}${chars[0]}${chars[1]}`);
+        perms.add(`${chars[2]}${chars[1]}${chars[0]}`);
+        return Array.from(perms);
+    };
+
+    const boxedSet = new Set();
+    topThree.forEach(num => {
+        getPermutations(num).forEach(p => boxedSet.add(p));
+    });
+    const boxedPermutations = Array.from(boxedSet).slice(0, 10);
+
+    const abPairs = [];
+    aBoard.slice(0, 3).forEach(a => bBoard.slice(0, 3).forEach(b => abPairs.push(`${a}${b}`)));
+    
+    const bcPairs = [];
+    bBoard.slice(0, 3).forEach(b => cBoard.slice(0, 3).forEach(c => bcPairs.push(`${b}${c}`)));
+
+    const acPairs = [];
+    aBoard.slice(0, 3).forEach(a => cBoard.slice(0, 3).forEach(c => acPairs.push(`${a}${c}`)));
+
+    const abcBoard = {
+        aBoard: aBoard.slice(0, 4),
+        bBoard: bBoard.slice(0, 4),
+        cBoard: cBoard.slice(0, 4),
+        abPairs: Array.from(new Set(abPairs)).slice(0, 8),
+        bcPairs: Array.from(new Set(bcPairs)).slice(0, 8),
+        acPairs: Array.from(new Set(acPairs)).slice(0, 8),
+        singleDigit: aBoard[0] || "5"
+    };
 
     return {
+        masterWinner: aiPrediction?.predictedNumber?.slice(-3) || topThree[0],
         predictedNumbers: [algo1, algo2, algo3, algo4, algo5, algo6, algo7, algo8, algo9],
         topFive: topThree,
+        boxedPermutations: boxedPermutations,
+        abcBoard: abcBoard,
         algorithms: {
             "Linear Trend": algo1, "Average Velocity": algo2, "Mirror Pattern": algo3, "Date Flow": algo4, "Delta Pattern-A": algo5, "Smart Delta": algo6, "Neighbor Reach": algo7, "Split-Merge Trend": algo8, "Composite (Hot Series)": algo9
         },
@@ -209,8 +330,8 @@ const generateFromList = (drawList, dateObj, algorithmStats = [], aiPrediction =
         poolAnalysis: {
             sum: last3.split('').reduce((a, b) => a + parseInt(b), 0),
             zone: Math.floor(parseInt(last3) / 200),
-            hotStats: getPositionalHotness(drawList),
-            matrix: generateSmartMatrix(last3, drawList)
+            hotStats: [aBoard.slice(0,2), bBoard.slice(0,2), cBoard.slice(0,2)],
+            matrix: generateSmartMatrix(last3, validDraws, markovData)
         }
     };
 };
@@ -246,9 +367,17 @@ export async function POST() {
     let aiPredictions = {};
     const modelTypes = ['rf', 'xgb', 'lstm'];
     
+    let pythonExec = "python";
+    const venvPython = path.resolve("venv/bin/python");
+    if (require('fs').existsSync(venvPython)) {
+        pythonExec = venvPython;
+    } else {
+        pythonExec = "python3";
+    }
+
     for (const type of modelTypes) {
         try {
-            const result = spawnSync("python", [path.resolve("python/predict.py"), type], { encoding: 'utf-8' });
+            const result = spawnSync(pythonExec, [path.resolve("python/predict.py"), type], { encoding: 'utf-8' });
             if (result.stdout) {
                 const jsonMatch = result.stdout.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -268,7 +397,8 @@ export async function POST() {
         }
     }
 
-    const historyPrediction = generateFromList(list, istDate, algoStats, aiPredictions.rf);
+    // Generate prediction using both daily list and lottery list
+    const historyPrediction = generateFromList(fullList.length >= 10 ? fullList : list, istDate, algoStats, aiPredictions.rf);
     const validFullList = fullList.filter(it => (it.first_ticket && /\d/.test(it.first_ticket)) || (it.result && /\d/.test(it.result)) || (it.mc && Array.isArray(it.mc) && it.mc.length > 0));
     const yesterdayPredictionData = generateFromList(validFullList, istDate, algoStats, aiPredictions.rf);
 
@@ -290,16 +420,18 @@ export async function POST() {
                 guessingBoard: yesterdayPredictionData.guessingBoard,
                 algorithms: yesterdayPredictionData.algorithms,
                 threeDigit: yesterdayPredictionData.threeDigit,
-                poolAnalysis: yesterdayPredictionData.poolAnalysis
+                poolAnalysis: yesterdayPredictionData.poolAnalysis,
+                abcBoard: yesterdayPredictionData.abcBoard
             } : undefined,
             poolAnalysis: historyPrediction.poolAnalysis,
+            abcBoard: historyPrediction.abcBoard,
             aiPredictions: aiPredictions
         },
         { upsert: true, new: true }
     );
     
     const savedLean = await Prediction.findOne({ _id: saved._id }).lean();
-    return NextResponse.json({ message: "Refined prediction generated", data: savedLean });
+    return NextResponse.json({ message: "Refined Markov-Ensemble prediction generated", data: savedLean });
 
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

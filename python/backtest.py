@@ -5,7 +5,6 @@ import os
 import json
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
-from xgboost import XGBClassifier
 
 def run_backtest(model_type='rf', window_size=200, test_size=50):
     """
@@ -42,25 +41,80 @@ def run_backtest(model_type='rf', window_size=200, test_size=50):
         # We use a sliding window of previous draws to train
         train_df = df.iloc[max(0, i - window_size):i]
         
+        actual = df.iloc[i][['digit_1', 'digit_2', 'digit_3']].values.astype(int)
         X_train = train_df[features]
         y_train = train_df[['digit_1', 'digit_2', 'digit_3']]
         
         # 2. Initialize and Train Model
         if model_type == 'rf':
             model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42))
+            model.fit(X_train, y_train)
+            X_test = df.iloc[[i]][features]
+            prediction = model.predict(X_test)[0]
+            pred_digits = [int(round(d)) for d in prediction]
         elif model_type == 'xgb':
-            model = MultiOutputClassifier(XGBClassifier(n_estimators=50, max_depth=5, use_label_encoder=False, eval_metric='mlogloss'))
+            try:
+                from xgboost import XGBClassifier
+                model = MultiOutputClassifier(XGBClassifier(n_estimators=50, max_depth=5, use_label_encoder=False, eval_metric='mlogloss'))
+                model.fit(X_train, y_train)
+                X_test = df.iloc[[i]][features]
+                prediction = model.predict(X_test)[0]
+                pred_digits = [int(round(d)) for d in prediction]
+            except Exception as e:
+                return {"error": f"XGBoost library error: {str(e)}"}
+        elif model_type == 'lstm':
+            import tensorflow as tf
+            from tensorflow.keras.models import Model
+            from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
+            from sklearn.preprocessing import MinMaxScaler
+            
+            seq_length = 10
+            lstm_features = ['digit_1', 'digit_2', 'digit_3', 'roll_d1', 'roll_d2', 'roll_d3', 'dist_d1', 'dist_d2', 'dist_d3', 'is_even_d1', 'is_even_d2', 'is_even_d3']
+            
+            data = train_df[lstm_features].values
+            if len(data) <= seq_length:
+                continue
+                
+            scaler = MinMaxScaler(feature_range=(0, 1))
+            data_scaled = scaler.fit_transform(data)
+            
+            xs, y1, y2, y3 = [], [], [], []
+            for k in range(len(data_scaled) - seq_length):
+                xs.append(data_scaled[k:(k + seq_length), :])
+                target_idx = k + seq_length
+                y1.append(int(train_df.iloc[target_idx]['digit_1']))
+                y2.append(int(train_df.iloc[target_idx]['digit_2']))
+                y3.append(int(train_df.iloc[target_idx]['digit_3']))
+                
+            if len(xs) == 0:
+                continue
+                
+            xs = np.array(xs)
+            y_dict = {
+                'digit_1': np.array(y1, dtype=int),
+                'digit_2': np.array(y2, dtype=int),
+                'digit_3': np.array(y3, dtype=int)
+            }
+            
+            inputs = Input(shape=(seq_length, len(lstm_features)))
+            x = LSTM(32, activation='relu')(inputs)
+            x = Dropout(0.1)(x)
+            out1 = Dense(10, activation='softmax', name='digit_1')(x)
+            out2 = Dense(10, activation='softmax', name='digit_2')(x)
+            out3 = Dense(10, activation='softmax', name='digit_3')(x)
+            
+            m = Model(inputs=inputs, outputs=[out1, out2, out3])
+            m.compile(optimizer='adam', loss='sparse_categorical_crossentropy')
+            m.fit(xs, y_dict, epochs=15, batch_size=32, verbose=0)
+            
+            last_draws = df[lstm_features].iloc[i-seq_length:i].values
+            last_draws_scaled = scaler.transform(last_draws)
+            X_lstm = np.array([last_draws_scaled])
+            
+            preds = m.predict(X_lstm, verbose=0)
+            pred_digits = [int(np.argmax(preds[0][0])), int(np.argmax(preds[1][0])), int(np.argmax(preds[2][0]))]
         else:
             continue
-
-        model.fit(X_train, y_train)
-        
-        # 3. Predict for current index i (Today)
-        X_test = df.iloc[[i]][features]
-        actual = df.iloc[i][['digit_1', 'digit_2', 'digit_3']].values
-        
-        prediction = model.predict(X_test)[0]
-        pred_digits = [int(round(d)) for d in prediction]
         
         is_hit = all(p == a for p, a in zip(pred_digits, actual))
         digits_matched = sum(1 for p, a in zip(pred_digits, actual) if p == a)
