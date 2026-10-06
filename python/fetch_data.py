@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import sys
 
-BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1"
+BASE_URL = os.getenv("KLR_API_BASE_URL") or os.getenv("API") or "https://indialotteryapi.com/wp-json/klr/v1"
 
 def fetch_history(limit=1000):
     try:

@@ -6,9 +6,10 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const limit = Math.max(1, Math.min(500, Number(searchParams.get("limit")) || 100));
 
+    const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
     let extData = null;
     try {
-      extData = await fetchWithCache("https://indialotteryapi.com/wp-json/klr/v1/history?limit=300", 5 * 60 * 1000);
+      extData = await fetchWithCache(`${BASE_URL}/history?limit=300`, 5 * 60 * 1000);
     } catch (err) {
       console.warn("Analysis route fetch warning:", err.message);
       extData = [];

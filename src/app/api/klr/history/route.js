@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchWithCache } from "@/app/lib/apiCache";
 
-const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
+const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
 
 function extractWinningTicket(item) {
   if (!item) return null;

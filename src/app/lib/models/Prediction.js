@@ -38,9 +38,47 @@ const PredictionSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    masterWinner: {
+      type: String,
+      required: false,
+    },
+    fullTickets: {
+      type: [String],
+      required: false,
+    },
+    boxedPermutations: {
+      type: [String],
+      required: false,
+    },
+    abcBoard: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
+    seedDraw: {
+      draw_name: String,
+      draw_date: String,
+      ticket: String
+    },
+    lastMonthDraw: {
+      draw_name: String,
+      date: String,
+      ticket: String,
+      series: String,
+      numeric: String,
+      last3: String,
+      diffDays: Number
+    },
     yesterdayPrediction: {
+        seedDraw: {
+          draw_name: String,
+          draw_date: String,
+          ticket: String
+        },
+        masterWinner: String,
+        fullTickets: [String],
         predictedNumbers: [String],
         topFive: [String],
+        boxedPermutations: [String],
         guessingBoard: [String],
         algorithms: {
             type: Map,
@@ -55,6 +93,10 @@ const PredictionSchema = new mongoose.Schema(
             zone: Number,
             hotStats: [[String]],
             matrix: [String]
+        },
+        abcBoard: {
+            type: mongoose.Schema.Types.Mixed,
+            required: false
         }
     },
     // Verification Fields

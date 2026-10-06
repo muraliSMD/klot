@@ -162,9 +162,10 @@ export default function DashboardPage() {
     let formattedNumber = "??????";
 
     if (isTodayReleased && rawTicket) {
-      const numericPart = rawTicket.replace(/\D/g, "") || "000000";
+      const ticketStr = String(rawTicket);
+      const numericPart = ticketStr.replace(/\D/g, "") || "000000";
       formattedNumber = numericPart.length >= 6 ? numericPart.slice(-6) : numericPart.padStart(6, "0");
-      const seriesMatch = rawTicket.match(/([A-Z]{2})/i);
+      const seriesMatch = ticketStr.match(/([A-Z]{2})/i);
       series = seriesMatch ? seriesMatch[1].toUpperCase() : "KL";
     } else {
       const name = item.todayLottery || item.draw_name || "KL";
@@ -173,6 +174,24 @@ export default function DashboardPage() {
         series = (words[0][0] + words[1][0]).toUpperCase();
       } else {
         series = name.slice(0, 2).toUpperCase();
+      }
+    }
+
+    // Previous Draw Parsing (Yesterday's Won Number)
+    let prevSeries = "KL";
+    let prevNumber = "XXXXXX";
+    let prevName = item.previousDraw?.draw_name || "Yesterday's Draw";
+    let prevDate = item.previousDraw?.date || "";
+
+    if (item.previousDraw && item.previousDraw.first_ticket) {
+      const prevTicketStr = String(item.previousDraw.first_ticket);
+      const prevNumeric = prevTicketStr.replace(/\D/g, "");
+      if (prevNumeric) {
+        prevNumber = prevNumeric.length >= 6 ? prevNumeric.slice(-6) : prevNumeric.padStart(6, "0");
+      }
+      const prevMatch = prevTicketStr.match(/([A-Z]{2})/i);
+      if (prevMatch) {
+        prevSeries = prevMatch[1].toUpperCase();
       }
     }
 
@@ -195,7 +214,13 @@ export default function DashboardPage() {
       tomorrowLottery: item.tomorrowLottery || "Tomorrow's Draw",
       tomorrowFormatted: item.tomorrowFormatted || "",
       tomorrowTargetTimestamp: item.tomorrowTargetTimestamp || (item.targetTimestamp || Date.now() + 86400000),
-      previousDraw: item.previousDraw || null
+      previousDraw: item.previousDraw ? {
+        draw_name: prevName,
+        date: prevDate,
+        series: prevSeries,
+        number: prevNumber,
+        first_ticket: item.previousDraw.first_ticket
+      } : null
     };
   };
 
@@ -225,197 +250,243 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TODAY & TOMORROW LOTTERY HERO SECTION */}
-      {winTicket.isTodayReleased ? (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          
-          {/* CARD 1: TODAY'S DRAWN WINNER (STAYS ON DISPLAY TILL TOMORROW) */}
-          <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#121520]/95 via-[#0d0f15]/95 to-[#181c28]/95 border border-emerald-500/30 shadow-2xl flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
-            <div className="relative z-10 space-y-4">
-              
-              {/* Responsive Header Row */}
-              <div className="space-y-3 border-b border-white/10 pb-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    Today's Official Result
+      {/* TODAY & TOMORROW / YESTERDAY & TODAY LOTTERY HERO SECTION */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {winTicket.isTodayReleased ? (
+          <>
+            {/* CARD 1: TODAY'S DRAWN WINNER */}
+            <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#121520]/95 via-[#0d0f15]/95 to-[#181c28]/95 border border-emerald-500/30 shadow-2xl flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                
+                {/* Responsive Header Row */}
+                <div className="space-y-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      Today's Official Result
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchLatestWin}
+                      disabled={syncingWin}
+                      className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1 disabled:opacity-50 shrink-0"
+                      title="Sync latest draw from official API"
+                    >
+                      <span className={syncingWin ? "animate-spin" : ""}>🔄</span>
+                      {syncingWin ? "Syncing..." : "Sync"}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={fetchLatestWin}
-                    disabled={syncingWin}
-                    className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1 disabled:opacity-50 shrink-0"
-                    title="Sync latest draw from official API"
-                  >
-                    <span className={syncingWin ? "animate-spin" : ""}>🔄</span>
-                    {syncingWin ? "Syncing..." : "Sync"}
-                  </button>
-                </div>
 
-                <div className="min-w-0">
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
-                    {winTicket.todayLottery}
-                  </h2>
-                  <p className="text-[11px] sm:text-xs text-muted-foreground font-medium mt-0.5">
-                    {winTicket.todayFormatted} • Drawn & Verified at 3:30 PM IST
-                  </p>
-                </div>
-              </div>
-
-              {/* Ticket Component Presentation */}
-              <div className="py-1">
-                <TicketStub
-                  prizeTitle="TODAY WINNER"
-                  drawCode={winTicket.name}
-                  prizeAmount={winTicket.prizeAmount}
-                  series={winTicket.series}
-                  seriesLabel="SERIES"
-                  number={winTicket.number}
-                  subtext="Official 1st Prize winning ticket for today"
-                  badgeColor="gold"
-                />
-              </div>
-
-              <div className="pt-2 text-[11px] text-emerald-400/80 font-medium flex items-center gap-1.5">
-                <span>✓ Today's winning result is saved & displayed continuously on dashboard.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* CARD 2: TOMORROW'S SCHEDULED DRAW & COUNTDOWN TIMER */}
-          <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#1b1726]/95 via-[#0f0c18]/95 to-[#241c33]/95 border border-amber-500/30 shadow-2xl flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
-            <div className="relative z-10 space-y-4">
-              
-              {/* Responsive Header Row with Full-Width Timer Alignment */}
-              <div className="space-y-3 border-b border-white/10 pb-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    Tomorrow's Next Draw
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-white/60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                    {winTicket.tomorrowFormatted}
-                  </span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                     <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
-                      {winTicket.tomorrowLottery}
+                      {winTicket.todayLottery}
                     </h2>
                     <p className="text-[11px] sm:text-xs text-muted-foreground font-medium mt-0.5">
-                      Draw releases at 3:30 PM IST tomorrow
+                      {winTicket.todayFormatted} • Drawn & Verified at 3:30 PM IST
                     </p>
                   </div>
-
-                  {/* Countdown Box - Fully Aligned & Non-Clipping */}
-                  <div className="flex items-center gap-2 bg-black/60 border border-amber-500/40 px-3 py-1.5 rounded-2xl shadow-lg shrink-0 self-start sm:self-auto">
-                    <div className="flex flex-col pr-1.5 border-r border-amber-500/20">
-                      <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest leading-none">3:30 PM</span>
-                      <span className="text-[7px] font-bold text-white/40 uppercase tracking-wider leading-none mt-0.5">DRAW IN</span>
-                    </div>
-                    <DrawCountdownTimer 
-                      targetTimestamp={winTicket.tomorrowTargetTimestamp} 
-                      onExpire={fetchLatestWin} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Ticket Component Presentation */}
-              <div className="py-1">
-                <TicketStub
-                  prizeTitle="TOMORROW TARGET"
-                  drawCode={winTicket.tomorrowLottery}
-                  prizeAmount="₹1,00,00,000 (1 Crore)"
-                  series="KL"
-                  seriesLabel="SCHEDULED"
-                  number="??????"
-                  subtext="Waiting until tomorrow 3:30 PM IST to obtain draw result"
-                  badgeColor="emerald"
-                />
-              </div>
-
-              <div className="pt-2 text-[11px] text-amber-300/80 font-medium flex items-center justify-between">
-                <span>⏳ Draw status: Scheduled for Tomorrow 3:30 PM IST</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      ) : (
-        /* TODAY'S DRAW PENDING CARD (BEFORE 3:30 PM IST TODAY) */
-        <div className="glass-card p-6 md:p-10 rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#121520]/90 via-[#0d0f15]/95 to-[#181c28]/90 border border-amber-500/20 shadow-2xl">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
-          
-          <div className="relative z-10 space-y-6">
-            <div className="space-y-3 border-b border-white/10 pb-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  Today's Scheduled Draw
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchLatestWin}
-                  disabled={syncingWin}
-                  className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/15 rounded-2xl text-xs font-bold text-white transition-all flex items-center gap-1.5 disabled:opacity-50"
-                  title="Re-sync latest draw from official API"
-                >
-                  <span className={syncingWin ? "animate-spin" : ""}>🔄</span>
-                  {syncingWin ? "Syncing..." : "Sync Result"}
-                </button>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
-                    {winTicket.todayLottery}
-                  </h2>
-                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                    Draw result releases today ({winTicket.todayFormatted}) at 3:30 PM IST
-                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-black/60 border border-amber-500/40 px-3.5 py-2 rounded-2xl shadow-lg shrink-0 self-start sm:self-auto">
-                  <div className="flex flex-col pr-1.5 border-r border-amber-500/20">
-                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none">3:30 PM</span>
-                    <span className="text-[7px] font-bold text-white/40 uppercase tracking-wider leading-none mt-0.5">DRAW IN</span>
-                  </div>
-                  <DrawCountdownTimer 
-                    targetTimestamp={winTicket.targetTimestamp} 
-                    onExpire={fetchLatestWin} 
+                {/* Ticket Component Presentation */}
+                <div className="py-1">
+                  <TicketStub
+                    prizeTitle="TODAY WINNER"
+                    drawCode={winTicket.name}
+                    prizeAmount={winTicket.prizeAmount}
+                    series={winTicket.series}
+                    seriesLabel="SERIES"
+                    number={winTicket.number}
+                    subtext="Official 1st Prize winning ticket for today"
+                    badgeColor="gold"
                   />
                 </div>
+
+                <div className="pt-2 text-[11px] text-emerald-400/80 font-medium flex items-center gap-1.5">
+                  <span>✓ Today's winning result is saved & displayed continuously on dashboard.</span>
+                </div>
               </div>
             </div>
 
-            <div className="py-2">
-              <TicketStub
-                prizeTitle="TODAY TARGET"
-                drawCode={winTicket.todayLottery}
-                prizeAmount="₹1,00,00,000 (1 Crore)"
-                series="KL"
-                seriesLabel="SERIES"
-                number="??????"
-                subtext="Today's draw result releases at 3:30 PM IST"
-                badgeColor="emerald"
-              />
+            {/* CARD 2: TOMORROW'S SCHEDULED DRAW & COUNTDOWN TIMER */}
+            <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#1b1726]/95 via-[#0f0c18]/95 to-[#241c33]/95 border border-amber-500/30 shadow-2xl flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                
+                {/* Responsive Header Row with Full-Width Timer Alignment */}
+                <div className="space-y-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      Tomorrow's Next Draw
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-white/60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                      {winTicket.tomorrowFormatted}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
+                        {winTicket.tomorrowLottery}
+                      </h2>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground font-medium mt-0.5">
+                        Draw releases at 3:30 PM IST tomorrow
+                      </p>
+                    </div>
+
+                    {/* Countdown Box */}
+                    <div className="flex items-center gap-2 bg-black/60 border border-amber-500/40 px-3 py-1.5 rounded-2xl shadow-lg shrink-0 self-start sm:self-auto">
+                      <div className="flex flex-col pr-1.5 border-r border-amber-500/20">
+                        <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest leading-none">3:30 PM</span>
+                        <span className="text-[7px] font-bold text-white/40 uppercase tracking-wider leading-none mt-0.5">DRAW IN</span>
+                      </div>
+                      <DrawCountdownTimer 
+                        targetTimestamp={winTicket.tomorrowTargetTimestamp} 
+                        onExpire={fetchLatestWin} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ticket Component Presentation */}
+                <div className="py-1">
+                  <TicketStub
+                    prizeTitle="TOMORROW TARGET"
+                    drawCode={winTicket.tomorrowLottery}
+                    prizeAmount="₹1,00,00,000 (1 Crore)"
+                    series="KL"
+                    seriesLabel="SCHEDULED"
+                    number="??????"
+                    subtext="Waiting until tomorrow 3:30 PM IST to obtain draw result"
+                    badgeColor="emerald"
+                  />
+                </div>
+
+                <div className="pt-2 text-[11px] text-amber-300/80 font-medium flex items-center justify-between">
+                  <span>⏳ Draw status: Scheduled for Tomorrow 3:30 PM IST</span>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* CARD 1: YESTERDAY'S WON NUMBER (FROM HISTORY) */}
+            <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#121520]/95 via-[#0d0f15]/95 to-[#181c28]/95 border border-purple-500/30 shadow-2xl flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-purple-500/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                
+                {/* Responsive Header Row */}
+                <div className="space-y-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
+                      <span>📜</span> Yesterday's Official Winner
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchLatestWin}
+                      disabled={syncingWin}
+                      className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1 disabled:opacity-50 shrink-0"
+                      title="Sync latest draw from official API"
+                    >
+                      <span className={syncingWin ? "animate-spin" : ""}>🔄</span>
+                      {syncingWin ? "Syncing..." : "Sync"}
+                    </button>
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
+                      {winTicket.previousDraw?.draw_name || "Yesterday's Draw"}
+                    </h2>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground font-medium mt-0.5">
+                      {winTicket.previousDraw?.date ? `${winTicket.previousDraw.date} • ` : ""}Official Past Winner from History
+                    </p>
+                  </div>
+                </div>
+
+                {/* Ticket Component Presentation */}
+                <div className="py-1">
+                  <TicketStub
+                    prizeTitle="YESTERDAY WINNER"
+                    drawCode={winTicket.previousDraw?.draw_name || "YESTERDAY"}
+                    prizeAmount="₹1,00,00,000 (1 Crore)"
+                    series={winTicket.previousDraw?.series || "KL"}
+                    seriesLabel="SERIES"
+                    number={winTicket.previousDraw?.number || "XXXXXX"}
+                    subtext="Official 1st Prize winning ticket from history"
+                    badgeColor="gold"
+                  />
+                </div>
+
+                <div className="pt-2 text-[11px] text-purple-300/80 font-medium flex items-center gap-1.5">
+                  <span>✓ Verified historical 1st Prize winning number</span>
+                </div>
+              </div>
             </div>
 
-            {winTicket.previousDraw && (
-              <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs text-white/50">
-                <span>Previous Official Winner Record:</span>
-                <span className="font-mono font-bold text-amber-300/80">
-                  {winTicket.previousDraw.draw_name} ({winTicket.previousDraw.first_ticket})
-                </span>
+            {/* CARD 2: TODAY'S SCHEDULED DRAW & COUNTDOWN TIMER */}
+            <div className="glass-card p-5 sm:p-7 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-[#1b1726]/95 via-[#0f0c18]/95 to-[#241c33]/95 border border-amber-500/30 shadow-2xl flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-[250px] h-[250px] bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                
+                {/* Responsive Header Row with Full-Width Timer Alignment */}
+                <div className="space-y-3 border-b border-white/10 pb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      Today's Scheduled Draw
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-white/60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                      {winTicket.todayFormatted}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-white tracking-tight truncate">
+                        {winTicket.todayLottery}
+                      </h2>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground font-medium mt-0.5">
+                        Draw releases today at 3:30 PM IST
+                      </p>
+                    </div>
+
+                    {/* Countdown Box */}
+                    <div className="flex items-center gap-2 bg-black/60 border border-amber-500/40 px-3 py-1.5 rounded-2xl shadow-lg shrink-0 self-start sm:self-auto">
+                      <div className="flex flex-col pr-1.5 border-r border-amber-500/20">
+                        <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest leading-none">3:30 PM</span>
+                        <span className="text-[7px] font-bold text-white/40 uppercase tracking-wider leading-none mt-0.5">DRAW IN</span>
+                      </div>
+                      <DrawCountdownTimer 
+                        targetTimestamp={winTicket.targetTimestamp} 
+                        onExpire={fetchLatestWin} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ticket Component Presentation */}
+                <div className="py-1">
+                  <TicketStub
+                    prizeTitle="TODAY TARGET"
+                    drawCode={winTicket.todayLottery}
+                    prizeAmount="₹1,00,00,000 (1 Crore)"
+                    series={winTicket.series}
+                    seriesLabel="SCHEDULED"
+                    number="??????"
+                    subtext="Waiting until today 3:30 PM IST to obtain draw result"
+                    badgeColor="emerald"
+                  />
+                </div>
+
+                <div className="pt-2 text-[11px] text-amber-300/80 font-medium flex items-center justify-between">
+                  <span>⏳ Draw status: Scheduled for Today 3:30 PM IST</span>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Analytics & Prediction Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -500,7 +571,7 @@ export default function DashboardPage() {
               prediction.disabled ? (
                 <div className="text-center py-8 space-y-2">
                   <div className="text-3xl">⏳</div>
-                  <p className="text-xs text-muted-foreground font-medium">Service available 11:00 AM - 1:00 PM IST</p>
+                  <p className="text-xs text-muted-foreground font-medium">Service available 10:00 AM - 1:00 PM IST</p>
                 </div>
               ) : (
                 <div className="space-y-4 my-4">

@@ -108,9 +108,9 @@ export default function LandingPage() {
                   prizeTitle="1ST PRIZE"
                   drawCode={latestResult.draw_name || latestResult.name || "BT-72"}
                   prizeAmount={latestResult.prize_amount || latestResult.firstprize || "₹1,00,00,000 (1 Crore)"}
-                  series={(latestResult.first_ticket || latestResult.result || "BT").replace(/[^A-Z]/gi, "").slice(0, 2).toUpperCase() || "BV"}
+                  series={String(latestResult.first_ticket || latestResult.result || "BT").replace(/[^A-Z]/gi, "").slice(0, 2).toUpperCase() || "BV"}
                   seriesLabel="SERIES"
-                  number={(latestResult.first_ticket || latestResult.result || "635205").replace(/\D/g, "").slice(-6) || "635205"}
+                  number={String(latestResult.first_ticket || latestResult.result || "635205").replace(/\D/g, "").slice(-6) || "635205"}
                   subtext="Tap ticket to copy winning number"
                   badgeColor="gold"
                 />
@@ -135,7 +135,7 @@ export default function LandingPage() {
                    <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl font-bold text-sm mb-4">
                       PREDICTIONS CLOSED
                    </div>
-                   <p className="text-muted-foreground">Today's predictions are available only between 11:00 AM and 1:00 PM IST. Please check back during this window.</p>
+                   <p className="text-muted-foreground">Today's predictions are available only between 10:00 AM and 1:00 PM IST. Please check back during this window.</p>
                    <div className="flex justify-center gap-4 opacity-30 grayscale pointer-events-none">
                       <span className="text-2xl font-black">??, ??</span>
                       <span className="text-2xl font-black">??, ??</span>

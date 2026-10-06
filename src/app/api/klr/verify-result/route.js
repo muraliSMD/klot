@@ -24,7 +24,8 @@ export async function POST(req) {
         }
 
         // 2. Fetch Live Result from External API
-        const { data: historyData } = await axios.get(`https://indialotteryapi.com/wp-json/klr/v1/history?limit=5`);
+        const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
+        const { data: historyData } = await axios.get(`${BASE_URL}/history?limit=5`);
         const todayDraw = Array.isArray(historyData) ? historyData.find(d => (d.draw_date === today || d.date === today)) : historyData.items?.find(d => (d.draw_date === today || d.date === today));
 
         if (!todayDraw) {

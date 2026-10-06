@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchWithCache } from "@/app/lib/apiCache";
 
-const BASE_URL = "https://indialotteryapi.com/wp-json/klr/v1";
+const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
 
 function extractWinningTicket(item) {
   if (!item) return null;
@@ -73,21 +73,25 @@ export async function GET() {
     const allItems = [latestSingle, ...historyList].filter(Boolean);
 
     let todayItem = null;
-    let previousItem = allItems[0] || null;
+    let todayIdx = -1;
 
     // Match today's official drawn result across all items
-    for (const item of allItems) {
+    for (let i = 0; i < allItems.length; i++) {
+      const item = allItems[i];
       const itemDate = String(item.date || item.draw_date || "");
       const itemName = String(item.draw_name || item.name || "");
 
       const matchesDate = possibleTodayDates.some(pd => itemDate.includes(pd) || itemName.includes(pd));
       if (matchesDate) {
         todayItem = item;
+        todayIdx = i;
         break;
       }
     }
 
     const isTodayReleased = !!todayItem;
+    const previousItem = isTodayReleased ? (allItems[todayIdx + 1] || allItems[1] || null) : (allItems[0] || null);
+
     const todayWinningTicket = isTodayReleased ? extractWinningTicket(todayItem) : null;
     const previousWinningTicket = previousItem ? extractWinningTicket(previousItem) : null;
 
