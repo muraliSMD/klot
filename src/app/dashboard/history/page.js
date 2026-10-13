@@ -264,19 +264,62 @@ export default function HistoryPage() {
                     {/* 3-Digit Patterns & ABC (Only for Performance Tab) */}
                      {activeTab === "performance" && (
                         <td className="p-5 sm:p-6">
-                            <div className="space-y-1 max-w-[200px]">
-                                <div className="flex flex-wrap gap-1">
-                                    {item.threeDigit ? Object.entries(item.threeDigit).slice(0, 3).map(([key, val], i) => (
-                                         <span key={i} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-300 rounded text-[10px] font-mono font-bold border border-blue-500/20" title={key}>
-                                             {key.slice(0,6)}: {val}
-                                         </span>
-                                    )) : <span className="text-muted-foreground text-xs">-</span>}
-                                </div>
-                                {item.abcBoard?.singleDigit && (
-                                  <div className="text-[10px] text-cyan-300 font-bold">
-                                    ABC Target: <span className="text-white font-mono">{item.abcBoard.singleDigit}</span>
+                            <div className="space-y-2 max-w-[240px]">
+                                {/* Single Target Digit Section */}
+                                {(item.singleTargetNumber || item.abcBoard?.singleDigit) ? (
+                                  <div className="p-2 bg-[#121624] border border-cyan-500/30 rounded-xl space-y-1 shadow-sm">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="text-[10px] font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                                        <span>🎯</span> Target Digit:
+                                      </span>
+                                      <span className="font-mono font-black text-amber-300 text-xs px-2 py-0.5 bg-black/60 rounded border border-amber-500/40">
+                                        {item.singleTargetNumber || item.abcBoard?.singleDigit}
+                                      </span>
+                                    </div>
+                                    {item.singleTargetAnalysis?.statusText && (
+                                      <div className={`text-[10px] font-black px-2 py-0.5 rounded-lg border text-center ${
+                                        item.singleTargetAnalysis.isHit
+                                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm"
+                                          : item.singleTargetAnalysis.statusText.includes("Pending")
+                                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                            : "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                                      }`}>
+                                        {item.singleTargetAnalysis.isHit ? "✅ " : item.singleTargetAnalysis.statusText.includes("Pending") ? "⏳ " : "❌ "}
+                                        {item.singleTargetAnalysis.statusText}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
+                                ) : null}
+
+                                {/* Top 3D Patterns */}
+                                <div className="flex flex-wrap gap-1">
+                                    {(() => {
+                                        if (!item.threeDigit) return null;
+                                        const entries = Object.entries(item.threeDigit);
+                                        const win3D = item.winningNumber ? String(item.winningNumber).replace(/\D/g, '').slice(-3) : null;
+                                        const sorted = entries.sort(([k1, v1], [k2, v2]) => {
+                                            const m1 = win3D && v1 === win3D ? 1 : 0;
+                                            const m2 = win3D && v2 === win3D ? 1 : 0;
+                                            return m2 - m1;
+                                        });
+                                        return sorted.slice(0, 3).map(([key, val], i) => {
+                                            const isHit = win3D && val === win3D;
+                                            return (
+                                                <span 
+                                                    key={i} 
+                                                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border transition-all ${
+                                                        isHit 
+                                                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm" 
+                                                            : "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                                                    }`} 
+                                                    title={`${key}: ${val}${isHit ? " (Winning Match!)" : ""}`}
+                                                >
+                                                    {isHit ? "🎯 " : ""}{key.length > 8 ? key.slice(0, 8) + "…" : key}: {val}
+                                                </span>
+                                            );
+                                        });
+                                    })()}
+                                </div>
                             </div>
                         </td>
                      )}

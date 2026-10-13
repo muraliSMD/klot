@@ -13,8 +13,15 @@ const generateToken = (id) => {
 export async function POST(req) {
   try {
     await dbConnect();
-    const { email, password } = await req.json();
-    const user = await User.findOne({ email });
+    const body = await req.json().catch(() => ({}));
+    const { email, password } = body;
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+    if (!cleanEmail || !password || typeof password !== "string") {
+      return NextResponse.json({ message: "Invalid email or password" }, { status: 400 });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return NextResponse.json({ message: "Invalid email or password" }, { status: 400 });
@@ -33,6 +40,7 @@ export async function POST(req) {
       token: generateToken(user._id),
     });
   } catch (err) {
-    return NextResponse.json({ message: "Server Error login Failed", error: err.message }, { status: 400 });
+    console.error("Login Error:", err);
+    return NextResponse.json({ message: "Login failed due to a server error" }, { status: 500 });
   }
 }

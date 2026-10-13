@@ -54,6 +54,34 @@ const PredictionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: false,
     },
+    singleTargetNumber: {
+      type: String,
+      required: false,
+    },
+    singleTargetBoard: {
+      type: String,
+      required: false,
+    },
+    singleTargetConfidence: {
+      type: Number,
+      required: false,
+    },
+    singleTargetPatternInfo: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
+    structuredPatternMatrix: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
+    aiDiscoveredPattern: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
+    preVerification: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
+    },
     seedDraw: {
       draw_name: String,
       draw_date: String,
@@ -95,6 +123,34 @@ const PredictionSchema = new mongoose.Schema(
             matrix: [String]
         },
         abcBoard: {
+            type: mongoose.Schema.Types.Mixed,
+            required: false
+        },
+        singleTargetNumber: {
+            type: String,
+            required: false
+        },
+        singleTargetBoard: {
+            type: String,
+            required: false
+        },
+        singleTargetConfidence: {
+            type: Number,
+            required: false
+        },
+        singleTargetPatternInfo: {
+            type: mongoose.Schema.Types.Mixed,
+            required: false
+        },
+        structuredPatternMatrix: {
+            type: mongoose.Schema.Types.Mixed,
+            required: false
+        },
+        aiDiscoveredPattern: {
+            type: mongoose.Schema.Types.Mixed,
+            required: false
+        },
+        preVerification: {
             type: mongoose.Schema.Types.Mixed,
             required: false
         }

@@ -1,30 +1,14 @@
 import { NextResponse } from "next/server";
-import { fetchWithCache } from "@/app/lib/apiCache";
+import { syncAndGetHistory } from "@/app/lib/historyService";
+import { generateStructuredPatternMatrix } from "@/app/lib/predictionEngine";
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.max(1, Math.min(500, Number(searchParams.get("limit")) || 100));
 
-    const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
-    let extData = null;
-    try {
-      extData = await fetchWithCache(`${BASE_URL}/history?limit=300`, 5 * 60 * 1000);
-    } catch (err) {
-      console.warn("Analysis route fetch warning:", err.message);
-      extData = [];
-    }
-
-    let items = [];
-    if (Array.isArray(extData)) {
-      items = extData;
-    } else if (Array.isArray(extData?.items)) {
-      items = extData.items;
-    } else if (extData && typeof extData === "object" && Array.isArray(extData.results)) {
-      items = extData.results;
-    }
-
-    items = items.slice(0, limit);
+    const allItems = await syncAndGetHistory(300);
+    const items = allItems.slice(0, limit);
 
     const firstPrizes = items.map((it) => {
       if (!it || typeof it !== "object") return null;
@@ -66,12 +50,14 @@ export async function GET(req) {
     }
 
     const freq = freqCounts.map((count, digit) => ({ digit, count }));
+    const structuredPatternMatrix = generateStructuredPatternMatrix(items);
 
     return NextResponse.json({
       ok: true,
       freq,
       totalDigits,
       docs: cleaned,
+      structuredPatternMatrix
     });
   } catch (err) {
     console.error("Analysis route error:", err.message);

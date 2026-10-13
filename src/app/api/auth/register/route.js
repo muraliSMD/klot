@@ -13,9 +13,26 @@ const generateToken = (id) => {
 export async function POST(req) {
   try {
     await dbConnect();
-    const { name, email, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { name, email, password } = body;
 
-    const existingUser = await User.findOne({ email });
+    const trimmedName = typeof name === "string" ? name.trim() : "";
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+    if (!trimmedName || trimmedName.length < 2) {
+      return NextResponse.json({ message: "Please provide a valid name (at least 2 characters)" }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      return NextResponse.json({ message: "Please provide a valid email address" }, { status: 400 });
+    }
+
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return NextResponse.json({ message: "Password must be at least 6 characters long" }, { status: 400 });
+    }
+
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return NextResponse.json({ message: "User already exists" }, { status: 400 });
     }
@@ -23,8 +40,8 @@ export async function POST(req) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
-      name,
-      email,
+      name: trimmedName,
+      email: cleanEmail,
       password: hashedPassword,
     });
 
@@ -36,6 +53,7 @@ export async function POST(req) {
       token: generateToken(newUser._id),
     }, { status: 201 });
   } catch (err) {
-    return NextResponse.json({ message: "Server Error signup Failed", error: err.message }, { status: 500 });
+    console.error("Register Error:", err);
+    return NextResponse.json({ message: "Signup failed due to an internal error" }, { status: 500 });
   }
 }

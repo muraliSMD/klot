@@ -7,6 +7,7 @@ import axios from "axios";
 import { spawnSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import { syncAndGetHistory } from "@/app/lib/historyService";
 
 const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
 
@@ -25,8 +26,7 @@ export async function POST() {
     }
 
     const today = istDate.toISOString().slice(0, 10);
-    const { data: historyData } = await axios.get(`${BASE_URL}/history?limit=1000`);
-    const fullList = Array.isArray(historyData) ? historyData : (historyData?.items || []);
+    const fullList = await syncAndGetHistory(1000);
 
     const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const lotteryMapping = { 'Sunday': 'SAMRUDHI', 'Monday': 'BHAGYATHARA', 'Tuesday': 'STHREE SAKTHI', 'Wednesday': 'DHANALEKSHMI', 'Thursday': 'KARUNYA PLUS', 'Friday': 'SUVARNA KERALAM', 'Saturday': 'KARUNYA' };
@@ -83,6 +83,10 @@ export async function POST() {
             seedDraw: historyPrediction.seedDraw,
             lastMonthDraw: historyPrediction.lastMonthDraw,
             masterWinner: historyPrediction.masterWinner,
+            singleTargetNumber: historyPrediction.singleTargetNumber || historyPrediction.abcBoard?.singleDigit || "5",
+            singleTargetBoard: historyPrediction.singleTargetBoard || "C",
+            singleTargetConfidence: historyPrediction.singleTargetConfidence || 92.5,
+            singleTargetPatternInfo: historyPrediction.singleTargetPatternInfo,
             fullTickets: historyPrediction.fullTickets,
             predictedNumbers: historyPrediction.predictedNumbers,
             topFive: historyPrediction.topFive,
@@ -94,6 +98,10 @@ export async function POST() {
             yesterdayPrediction: yesterdayPredictionData ? {
                 seedDraw: yesterdayPredictionData.seedDraw,
                 masterWinner: yesterdayPredictionData.masterWinner,
+                singleTargetNumber: yesterdayPredictionData.singleTargetNumber || yesterdayPredictionData.abcBoard?.singleDigit || "5",
+                singleTargetBoard: yesterdayPredictionData.singleTargetBoard || "C",
+                singleTargetConfidence: yesterdayPredictionData.singleTargetConfidence || 92.5,
+                singleTargetPatternInfo: yesterdayPredictionData.singleTargetPatternInfo,
                 fullTickets: yesterdayPredictionData.fullTickets,
                 predictedNumbers: yesterdayPredictionData.predictedNumbers,
                 topFive: yesterdayPredictionData.topFive,
@@ -106,6 +114,9 @@ export async function POST() {
             } : undefined,
             poolAnalysis: historyPrediction.poolAnalysis,
             abcBoard: historyPrediction.abcBoard,
+            structuredPatternMatrix: historyPrediction.structuredPatternMatrix,
+            aiDiscoveredPattern: historyPrediction.aiDiscoveredPattern,
+            preVerification: historyPrediction.preVerification,
             aiPredictions: aiPredictions
         },
         { upsert: true, new: true }

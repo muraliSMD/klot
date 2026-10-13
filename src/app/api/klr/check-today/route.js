@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/app/lib/db";
-import { fetchWithCache } from "@/app/lib/apiCache";
+import { syncAndGetHistory } from "@/app/lib/historyService";
 import Prediction from "@/app/lib/models/Prediction";
 import { generateFromList } from "@/app/lib/predictionEngine";
 
@@ -17,7 +17,6 @@ export async function GET() {
     const today = istDate.toISOString().slice(0, 10);
     let existing = await Prediction.findOne({ date: today }).lean();
     
-    const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
     let trend = [];
     
     if (!existing) {
@@ -33,8 +32,7 @@ export async function GET() {
     let dayOfWeek = "";
     
     try {
-        const historyData = await fetchWithCache(`${BASE_URL}/history?limit=300`, 5 * 60 * 1000);
-        const fullList = Array.isArray(historyData) ? historyData : (historyData?.items || []);
+        const fullList = await syncAndGetHistory(300);
 
         const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const istDay = istDate.getUTCDay();
@@ -79,23 +77,64 @@ export async function GET() {
 
             const needsPatch = !existing?.threeDigit || 
                                !existing?.threeDigit["Repeat Middle"] || 
-                               !existing?.threeDigit["Symmetric Drift"];
+                               !existing?.threeDigit["A-Anchor BC-Mirror"];
 
-            if (existing && (needsPatch || !existing.yesterdayPrediction)) {
+            if (existing && !existing.result && (needsPatch || !existing.yesterdayPrediction || !existing.singleTargetNumber)) {
                 const historyPrediction = generateFromList(list, istDate);
                 const yesterdayPredictionData = generateFromList(fullList, istDate);
 
                 const updates = {};
                 
-                if (needsPatch && historyPrediction) {
-                    updates.threeDigit = historyPrediction.threeDigit;
-                    existing.threeDigit = historyPrediction.threeDigit;
+                if (historyPrediction && (!existing.singleTargetNumber || !existing.singleTargetPatternInfo)) {
+                    const st = historyPrediction.singleTargetNumber || historyPrediction.abcBoard?.singleDigit || "5";
+                    updates.singleTargetNumber = st;
+                    updates.singleTargetBoard = historyPrediction.singleTargetBoard || "C";
+                    updates.singleTargetConfidence = historyPrediction.singleTargetConfidence || 92.5;
+                    updates.singleTargetPatternInfo = historyPrediction.singleTargetPatternInfo;
+                    existing.singleTargetNumber = st;
+                    existing.singleTargetBoard = updates.singleTargetBoard;
+                    existing.singleTargetConfidence = updates.singleTargetConfidence;
+                    existing.singleTargetPatternInfo = updates.singleTargetPatternInfo;
+                }
+
+                if (historyPrediction) {
+                    if (!existing.structuredPatternMatrix) {
+                        updates.structuredPatternMatrix = historyPrediction.structuredPatternMatrix;
+                        existing.structuredPatternMatrix = historyPrediction.structuredPatternMatrix;
+                    }
+                    if (!existing.aiDiscoveredPattern) {
+                        updates.aiDiscoveredPattern = historyPrediction.aiDiscoveredPattern;
+                        existing.aiDiscoveredPattern = historyPrediction.aiDiscoveredPattern;
+                    }
+                    if (!existing.preVerification) {
+                        updates.preVerification = historyPrediction.preVerification;
+                        existing.preVerification = historyPrediction.preVerification;
+                    }
+
+                    // Safely merge threeDigit without ever overwriting existing keys like Direct!
+                    if (!existing.threeDigit) {
+                        updates.threeDigit = historyPrediction.threeDigit;
+                        existing.threeDigit = historyPrediction.threeDigit;
+                    } else if (historyPrediction.threeDigit) {
+                        const existingThree = existing.threeDigit instanceof Map ? Object.fromEntries(existing.threeDigit) : (existing.threeDigit || {});
+                        const mergedThree = { ...historyPrediction.threeDigit, ...existingThree };
+                        // Direct must be preserved strictly as originally generated
+                        if (existingThree["Direct"]) {
+                            mergedThree["Direct"] = existingThree["Direct"];
+                        }
+                        updates.threeDigit = mergedThree;
+                        existing.threeDigit = mergedThree;
+                    }
                 }
 
                 if (!existing.yesterdayPrediction && yesterdayPredictionData) {
                     updates.yesterdayPrediction = {
                         seedDraw: yesterdayPredictionData.seedDraw,
                         masterWinner: yesterdayPredictionData.masterWinner,
+                        singleTargetNumber: yesterdayPredictionData.singleTargetNumber || yesterdayPredictionData.abcBoard?.singleDigit || "5",
+                        singleTargetBoard: yesterdayPredictionData.singleTargetBoard || "C",
+                        singleTargetConfidence: yesterdayPredictionData.singleTargetConfidence || 92.5,
+                        singleTargetPatternInfo: yesterdayPredictionData.singleTargetPatternInfo,
                         fullTickets: yesterdayPredictionData.fullTickets,
                         predictedNumbers: yesterdayPredictionData.predictedNumbers,
                         topFive: yesterdayPredictionData.topFive,

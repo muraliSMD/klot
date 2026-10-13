@@ -51,11 +51,22 @@ async function runPythonScript(scriptPath, args = []) {
     });
 }
 
+const ALLOWED_MODELS = ["rf", "xgb", "lstm"];
+const ALLOWED_GET_ACTIONS = ["predict", "backtest"];
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const action = searchParams.get("action");
         const model = searchParams.get("model") || "rf";
+
+        if (!ALLOWED_GET_ACTIONS.includes(action)) {
+            return NextResponse.json({ error: "Invalid or unsupported action" }, { status: 400 });
+        }
+
+        if (!ALLOWED_MODELS.includes(model)) {
+            return NextResponse.json({ error: "Invalid model specification" }, { status: 400 });
+        }
 
         if (action === "predict") {
             const result = await runPythonScript("python/predict.py", [model]);
@@ -69,31 +80,36 @@ export async function GET(request) {
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("ML GET Route Error:", error);
+        return NextResponse.json({ error: "ML operation encountered an error" }, { status: 500 });
     }
 }
 
 export async function POST(request) {
     try {
-        const body = await request.json();
+        const body = await request.json().catch(() => ({}));
         const { action, model } = body;
 
         if (action === "train") {
-            let script = "";
-            if (model === "rf") script = "python/train_model.py";
-            else if (model === "xgb") script = "python/train_xgboost.py";
-            else if (model === "lstm") script = "python/train_lstm.py";
-            else if (model === "fetch") script = "python/fetch_data.py";
-            else return NextResponse.json({ error: "Invalid model" }, { status: 400 });
+            const TRAINING_SCRIPTS = {
+                rf: "python/train_model.py",
+                xgb: "python/train_xgboost.py",
+                lstm: "python/train_lstm.py",
+                fetch: "python/fetch_data.py"
+            };
 
-            // Run training in background (don't await for too long if it takes time)
-            // But for now, we'll await to give feedback to UI
+            const script = TRAINING_SCRIPTS[model];
+            if (!script) {
+                return NextResponse.json({ error: "Invalid or unauthorized model type" }, { status: 400 });
+            }
+
             const result = await runPythonScript(script);
             return NextResponse.json({ success: true, result });
         }
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("ML POST Route Error:", error);
+        return NextResponse.json({ error: "ML training encountered an error" }, { status: 500 });
     }
 }

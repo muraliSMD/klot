@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchWithCache } from "@/app/lib/apiCache";
+import { syncAndGetHistory } from "@/app/lib/historyService";
 
 const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
 
@@ -61,10 +62,10 @@ export async function GET() {
     const tomorrowDayName = weekdayNames[tomorrowIST.getUTCDay()];
     const tomorrowLotteryName = lotteryMapping[tomorrowDayName];
 
-    // Fetch latest and recent history concurrently using high-speed server cache
+    // Fetch latest and recent history concurrently with MongoDB DB fallback
     const [latestData, historyData] = await Promise.all([
       fetchWithCache(`${BASE_URL}/latest`, 2 * 60 * 1000).catch(() => null),
-      fetchWithCache(`${BASE_URL}/history?limit=30`, 5 * 60 * 1000).catch(() => [])
+      syncAndGetHistory(30).catch(() => [])
     ]);
 
     const latestSingle = Array.isArray(latestData) ? latestData[0] : latestData;
