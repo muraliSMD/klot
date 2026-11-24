@@ -1,0 +1,374 @@
+{
+  "tickets": 410,
+  "date_range": [
+    "2025-09-09",
+    "2026-10-31"
+  ],
+  "positions": [
+    {
+      "position": 1,
+      "label": "digit 1",
+      "counts": [
+        0,
+        40,
+        65,
+        42,
+        32,
+        68,
+        41,
+        47,
+        47,
+        28
+      ],
+      "chi_square": 80.73,
+      "p_value": 0.0,
+      "biased": true,
+      "most_common": 5
+    },
+    {
+      "position": 2,
+      "label": "digit 2",
+      "counts": [
+        56,
+        29,
+        50,
+        45,
+        42,
+        29,
+        45,
+        29,
+        51,
+        34
+      ],
+      "chi_square": 22.44,
+      "p_value": 0.00771,
+      "biased": true,
+      "most_common": 0
+    },
+    {
+      "position": 3,
+      "label": "digit 3",
+      "counts": [
+        37,
+        22,
+        33,
+        37,
+        42,
+        64,
+        41,
+        49,
+        30,
+        55
+      ],
+      "chi_square": 33.37,
+      "p_value": 0.00013,
+      "biased": true,
+      "most_common": 5
+    },
+    {
+      "position": 4,
+      "label": "digit 4",
+      "counts": [
+        33,
+        30,
+        46,
+        23,
+        52,
+        33,
+        44,
+        53,
+        52,
+        44
+      ],
+      "chi_square": 24.44,
+      "p_value": 0.00377,
+      "biased": true,
+      "most_common": 7
+    },
+    {
+      "position": 5,
+      "label": "digit 5",
+      "counts": [
+        40,
+        40,
+        51,
+        43,
+        40,
+        29,
+        47,
+        35,
+        48,
+        37
+      ],
+      "chi_square": 9.46,
+      "p_value": 0.39568,
+      "biased": false,
+      "most_common": 2
+    },
+    {
+      "position": 6,
+      "label": "last digit",
+      "counts": [
+        56,
+        20,
+        40,
+        34,
+        36,
+        67,
+        28,
+        53,
+        35,
+        41
+      ],
+      "chi_square": 43.07,
+      "p_value": 0.0,
+      "biased": true,
+      "most_common": 5
+    }
+  ],
+  "position_links": [
+    {
+      "pair": "4-5",
+      "chi_square": 87.9,
+      "p_value": 0.2813,
+      "linked": false
+    },
+    {
+      "pair": "3-4",
+      "chi_square": 86.9,
+      "p_value": 0.306,
+      "linked": false
+    },
+    {
+      "pair": "2-4",
+      "chi_square": 86.5,
+      "p_value": 0.3169,
+      "linked": false
+    },
+    {
+      "pair": "2-5",
+      "chi_square": 79.8,
+      "p_value": 0.5173,
+      "linked": false
+    },
+    {
+      "pair": "2-3",
+      "chi_square": 79.0,
+      "p_value": 0.5434,
+      "linked": false
+    }
+  ],
+  "any_positions_linked": false,
+  "digit_sum": {
+    "mean": 27.91,
+    "expected": 27.0
+  },
+  "tickets_with_repeated_digit_pct": 86.3,
+  "expected_repeated_digit_pct": 84.9,
+  "series_first_letter": {
+    "S": 61,
+    "D": 59,
+    "M": 59,
+    "R": 58,
+    "B": 58,
+    "P": 57,
+    "K": 51,
+    "T": 2,
+    "J": 1,
+    "X": 1,
+    "V": 1
+  },
+  "series_second_letter": {
+    "F": 24,
+    "U": 23,
+    "W": 23,
+    "J": 22,
+    "B": 21,
+    "V": 20,
+    "O": 20,
+    "G": 20,
+    "L": 19,
+    "H": 19,
+    "T": 18,
+    "D": 17,
+    "S": 17,
+    "X": 16,
+    "M": 16,
+    "A": 15,
+    "Y": 14,
+    "C": 14,
+    "N": 14,
+    "Z": 13,
+    "E": 13,
+    "R": 11,
+    "P": 10,
+    "K": 9
+  },
+  "last_digit_by_lottery": {
+    "Sthree Sakthi": {
+      "draws": 37,
+      "most_common": 2,
+      "chi_square": 10.3
+    },
+    "Dhanalekshmi": {
+      "draws": 37,
+      "most_common": 0,
+      "chi_square": 10.3
+    },
+    "Karunya Plus": {
+      "draws": 36,
+      "most_common": 5,
+      "chi_square": 8.4
+    },
+    "Suvarna Keralam": {
+      "draws": 37,
+      "most_common": 5,
+      "chi_square": 11.4
+    },
+    "Karunya": {
+      "draws": 33,
+      "most_common": 7,
+      "chi_square": 9.1
+    },
+    "Samrudhi": {
+      "draws": 37,
+      "most_common": 0,
+      "chi_square": 10.8
+    },
+    "Bhagyathara": {
+      "draws": 36,
+      "most_common": 5,
+      "chi_square": 11.8
+    },
+    "KARUNYA PLUS": {
+      "draws": 23,
+      "most_common": 7,
+      "chi_square": 21.8
+    },
+    "Thiruvonam Bumper": {
+      "draws": 2,
+      "most_common": 5,
+      "chi_square": 18.0
+    },
+    "Pooja Bumper": {
+      "draws": 1,
+      "most_common": 2,
+      "chi_square": 9.0
+    },
+    "Christmas New Year Bumper": {
+      "draws": 1,
+      "most_common": 5,
+      "chi_square": 9.0
+    },
+    "SAMRUDHI": {
+      "draws": 22,
+      "most_common": 4,
+      "chi_square": 6.2
+    },
+    "STHREE SAKTHI": {
+      "draws": 25,
+      "most_common": 9,
+      "chi_square": 16.2
+    },
+    "SUMMER BUMPER": {
+      "draws": 1,
+      "most_common": 6,
+      "chi_square": 9.0
+    },
+    "Vishu Bumper": {
+      "draws": 1,
+      "most_common": 2,
+      "chi_square": 9.0
+    },
+    "BHAGYATHARA": {
+      "draws": 22,
+      "most_common": 5,
+      "chi_square": 14.4
+    },
+    "DHANALEKSHMI": {
+      "draws": 20,
+      "most_common": 7,
+      "chi_square": 6.0
+    },
+    "SUVARNA KERALAM": {
+      "draws": 19,
+      "most_common": 8,
+      "chi_square": 4.7
+    },
+    "KARUNYA": {
+      "draws": 19,
+      "most_common": 0,
+      "chi_square": 9.9
+    },
+    "Monsoon Bumper": {
+      "draws": 1,
+      "most_common": 6,
+      "chi_square": 9.0
+    }
+  },
+  "last_digit_over_time": [
+    {
+      "from": "2025-09-09",
+      "to": "2026-01-24",
+      "counts": [
+        21,
+        4,
+        19,
+        12,
+        12,
+        21,
+        7,
+        18,
+        7,
+        15
+      ],
+      "top3": [
+        5,
+        0,
+        2
+      ]
+    },
+    {
+      "from": "2026-01-25",
+      "to": "2026-06-13",
+      "counts": [
+        17,
+        9,
+        11,
+        14,
+        11,
+        23,
+        9,
+        17,
+        13,
+        13
+      ],
+      "top3": [
+        5,
+        7,
+        0
+      ]
+    },
+    {
+      "from": "2026-06-14",
+      "to": "2026-10-31",
+      "counts": [
+        18,
+        7,
+        10,
+        8,
+        13,
+        23,
+        12,
+        18,
+        15,
+        13
+      ],
+      "top3": [
+        5,
+        7,
+        0
+      ]
+    }
+  ]
+}

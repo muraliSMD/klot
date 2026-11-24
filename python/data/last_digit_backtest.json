@@ -1,0 +1,81 @@
+{
+  "target": "last digit",
+  "generated_at": "2026-11-24T11:39:50.406494+00:00",
+  "baseline_pct": 10.0,
+  "draws_tested": 186,
+  "results": [
+    {
+      "model": "random",
+      "hits": 23,
+      "tested": 186,
+      "accuracy_pct": 12.37,
+      "ci95_pct": [
+        8.38,
+        17.87
+      ],
+      "p_value_vs_random": 0.1692,
+      "beats_random": false
+    },
+    {
+      "model": "most_frequent",
+      "hits": 21,
+      "tested": 186,
+      "accuracy_pct": 11.29,
+      "ci95_pct": [
+        7.5,
+        16.64
+      ],
+      "p_value_vs_random": 0.3122,
+      "beats_random": false
+    },
+    {
+      "model": "repeat_last",
+      "hits": 15,
+      "tested": 186,
+      "accuracy_pct": 8.06,
+      "ci95_pct": [
+        4.95,
+        12.88
+      ],
+      "p_value_vs_random": 0.8423,
+      "beats_random": false
+    },
+    {
+      "model": "logistic",
+      "hits": 14,
+      "tested": 186,
+      "accuracy_pct": 7.53,
+      "ci95_pct": [
+        4.54,
+        12.24
+      ],
+      "p_value_vs_random": 0.8978,
+      "beats_random": false
+    },
+    {
+      "model": "random_forest",
+      "hits": 24,
+      "tested": 186,
+      "accuracy_pct": 12.9,
+      "ci95_pct": [
+        8.83,
+        18.48
+      ],
+      "p_value_vs_random": 0.1177,
+      "beats_random": false
+    },
+    {
+      "model": "context_pattern",
+      "hits": 32,
+      "tested": 186,
+      "accuracy_pct": 17.2,
+      "ci95_pct": [
+        12.46,
+        23.28
+      ],
+      "p_value_vs_random": 0.0017,
+      "beats_random": true
+    }
+  ],
+  "note": "A model only beats chance if beats_random is true. Otherwise its accuracy is consistent with random guessing."
+}

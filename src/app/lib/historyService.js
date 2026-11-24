@@ -19,6 +19,48 @@ function extractWinningTicket(item) {
   return null;
 }
 
+/**
+ * Pull every draw the external API exposes (offset paging) and upsert into MongoDB.
+ * Draws without a published 1st-prize ticket (e.g. today's pending draw) are skipped.
+ */
+export async function syncAllHistory({ pageSize = 100 } = {}) {
+  await connectDB();
+  const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
+  let offset = 0, total = Infinity, upserted = 0, skipped = 0;
+
+  while (offset < total) {
+    const res = await fetch(`${BASE_URL}/history?limit=${pageSize}&offset=${offset}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`History API responded ${res.status}`);
+    const data = await res.json();
+    const items = data.items || [];
+    total = Number(data.total) || 0;
+    if (items.length === 0) break;
+
+    const ops = [];
+    for (const it of items) {
+      const date = it.draw_date || it.date;
+      const draw_name = it.draw_name || it.name || "Kerala Draw";
+      const first_ticket = extractWinningTicket(it);
+      if (!date || !first_ticket) { skipped++; continue; }
+      ops.push({
+        updateOne: {
+          filter: { date, draw_name },
+          update: { $set: { date, draw_name, first_ticket, draw_code: it.draw_code || "", prizes: it.prizes || {}, raw: it } },
+          upsert: true
+        }
+      });
+    }
+    if (ops.length) {
+      await DrawHistory.bulkWrite(ops, { ordered: false });
+      upserted += ops.length;
+    }
+    offset += items.length;
+  }
+
+  const stored = await DrawHistory.countDocuments();
+  return { upserted, skipped, apiTotal: total === Infinity ? 0 : total, stored };
+}
+
 export async function syncAndGetHistory(limit = 300) {
   await connectDB();
   const BASE_URL = process.env.KLR_API_BASE_URL || process.env.API || "https://indialotteryapi.com/wp-json/klr/v1";
@@ -54,7 +96,10 @@ export async function syncAndGetHistory(limit = 300) {
                 $set: {
                   date: item.date,
                   draw_name: item.draw_name,
-                  first_ticket: item.first_ticket
+                  first_ticket: item.first_ticket,
+                  draw_code: item.draw_code || "",
+                  prizes: item.prizes || {},
+                  raw: item
                 }
               },
               upsert: true

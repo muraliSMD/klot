@@ -9,7 +9,6 @@ export default function LandingPage() {
   const [prediction, setPrediction] = useState(null);
   const [history, setHistory] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isPredictionsDisabled, setIsPredictionsDisabled] = useState(false);
 
   useEffect(() => {
     // Check login status
@@ -35,13 +34,10 @@ export default function LandingPage() {
       }
     }).catch(console.error);
     
-    API.get("/klr/check-today").then(res => {
-      if (res.data.disabled) {
-        setIsPredictionsDisabled(true);
-      } else if (res.data.data) {
-        setPrediction(res.data.data);
-      }
-    }).catch(console.error);
+    fetch("/api/klr/last-digit-patterns")
+      .then(r => r.json())
+      .then(d => { if (d.available) setPrediction(d.prediction); })
+      .catch(console.error);
   }, []);
 
   return (
@@ -70,7 +66,7 @@ export default function LandingPage() {
           WIN THE <br /> FUTURE.
         </h1>
         <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10">
-          Advanced statistical analysis and AI-driven predictions for Kerala Lottery. High precision, real-time data.
+          Last-digit analysis for Kerala Lottery, tested honestly against every stored draw.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link 
@@ -121,70 +117,36 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* Prediction Area (Public/Private Toggle) */}
-            <div className={`glass-card p-8 rounded-3xl relative overflow-hidden group border-primary/20 ${!isLoggedIn && "bg-primary/5"}`}>
+            {/* Last-digit prediction */}
+            <div className="glass-card p-8 rounded-3xl relative overflow-hidden group border-primary/20">
               <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <div className="flex justify-between items-start mb-4">
-                 <h3 className="text-2xl font-bold font-outfit">Today's Prediction</h3>
-                 {!isLoggedIn && <span className="text-[10px] bg-primary text-white px-2 py-1 rounded font-bold">PREMIUM</span>}
+              <div className="flex justify-between items-start mb-4 relative">
+                 <h3 className="text-2xl font-bold font-outfit">Next Last Digit</h3>
+                 {prediction && <span className="text-[10px] bg-white/10 text-white/70 px-2 py-1 rounded font-bold">{prediction.for_date}</span>}
               </div>
-
-              {isPredictionsDisabled ? (
-                // Predictions Disabled State
-                <div className="space-y-4 py-4 text-center">
-                   <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl font-bold text-sm mb-4">
-                      PREDICTIONS CLOSED
-                   </div>
-                   <p className="text-muted-foreground">Today's predictions are available only between 10:00 AM and 1:00 PM IST. Please check back during this window.</p>
-                   <div className="flex justify-center gap-4 opacity-30 grayscale pointer-events-none">
-                      <span className="text-2xl font-black">??, ??</span>
-                      <span className="text-2xl font-black">??, ??</span>
-                   </div>
-                </div>
-              ) : isLoggedIn ? (
-                // Logged In: Show Full Prediction
-                prediction ? (
-                   <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">Your member-only super ensemble:</p>
-                    <div className="flex flex-wrap gap-2">
-                       {prediction.predictedNumbers.map((num, i) => (
-                         <span key={i} className="px-4 py-2 bg-primary text-white rounded-xl font-black border border-white/10 text-xl shadow-lg shadow-primary/20">{num}</span>
-                       ))}
+              {prediction ? (
+                <div className="relative flex items-center gap-6">
+                  <div className="font-outfit text-7xl font-black text-emerald-300 drop-shadow-[0_0_25px_rgba(16,185,129,0.35)]">{prediction.top_digit}</div>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      {prediction.top3.map((d) => (
+                        <span key={d} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 font-mono font-black">{d}</span>
+                      ))}
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">Generating personalized prediction...</p>
-                )
-              ) : (
-                // Public: Show "2 Combination" Teaser
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Top Repeating Pairs (Public Preview):</p>
-                  <div className="flex gap-4">
-                      {/* Fake stylized pairs for public view based on prediction if avail, or static */}
-                      {prediction ? (
-                        prediction.predictedNumbers.slice(0, 2).map((num, i) => (
-                          <div key={i} className="flex flex-col items-center">
-                             <span className="text-2xl font-black text-white">{num.slice(0,2)}, {num.slice(2,4)}</span>
-                             <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Hot Pair</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex gap-4 opacity-50">
-                           <span className="text-2xl font-black">23, 45</span>
-                           <span className="text-2xl font-black">88, 12</span>
-                        </div>
-                      )}
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-white/5">
-                     <Link href="/login" className="text-xs font-bold text-primary flex items-center gap-1 hover:underline">
-                        Login to view full 3-digit predictions →
-                     </Link>
+                    <p className="text-xs text-muted-foreground">Top-3 shortlist</p>
                   </div>
                 </div>
+              ) : (
+                <p className="text-muted-foreground animate-pulse">Loading last-digit analysis...</p>
               )}
-              <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                 {isPredictionsDisabled ? "Predictions Closed" : "Updated Live"}
-              </div>
+              <p className="relative mt-5 text-[11px] text-muted-foreground leading-relaxed">
+                {prediction?.has_proven_edge
+                  ? "Based on patterns validated on unseen draws."
+                  : "No pattern is proven yet — random guessing hits ~10% (top 3 ≈ 30%)."}
+              </p>
+              <Link href={isLoggedIn ? "/dashboard" : "/login"} className="relative mt-4 inline-flex text-xs font-bold text-primary hover:underline">
+                See all patterns tested →
+              </Link>
             </div>
         </div>
 
@@ -214,7 +176,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="mt-20 text-muted-foreground text-sm opacity-50">
-        © 2026 K-LOT Advanced Prediction Systems. All rights reserved.
+        © 2026 K-LOT Last-Digit Analysis. All rights reserved.
       </footer>
       </div>
     </div>

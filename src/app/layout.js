@@ -12,8 +12,8 @@ const outfit = Outfit({
 });
 
 export const metadata = {
-  title: "K-LOT | Premium Lottery Predictions",
-  description: "Advanced lottery prediction and analysis platform using real-time data.",
+  title: "K-LOT | Kerala Lottery Last-Digit Analysis",
+  description: "Last-digit pattern analysis for Kerala Lottery, validated against every stored draw.",
 };
 
 export default function RootLayout({ children }) {

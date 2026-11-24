@@ -14,7 +14,10 @@ const DrawHistorySchema = new mongoose.Schema(
     first_ticket: {
       type: String, // Winning 1st prize ticket (e.g. "SS 123456" or "123456")
       required: true
-    }
+    },
+    draw_code: { type: String, default: "" }, // e.g. "KR-772"
+    prizes: { type: mongoose.Schema.Types.Mixed, default: {} }, // all prize tiers + amounts
+    raw: { type: mongoose.Schema.Types.Mixed, default: {} } // original API payload for reference
   },
   { timestamps: true }
 );

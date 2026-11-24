@@ -49,7 +49,7 @@ export default function RegisterPage() {
             <span className="bg-primary px-3 py-1 rounded-xl text-primary-foreground">K</span> LOT
           </Link>
           <h2 className="text-2xl font-bold font-outfit">Create Account</h2>
-          <p className="text-muted-foreground text-sm mt-1">Join the elite prediction platform</p>
+          <p className="text-muted-foreground text-sm mt-1">Last-digit analysis for Kerala Lottery</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

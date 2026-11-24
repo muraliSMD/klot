@@ -8,13 +8,78 @@ BASE_URL = os.getenv("KLR_API_BASE_URL") or os.getenv("API") or "https://indialo
 
 def fetch_history(limit=1000):
     try:
-        response = requests.get(f"{BASE_URL}/history?limit={limit}")
+        response = requests.get(f"{BASE_URL}/history?limit={limit}", timeout=10)
         response.raise_for_status()
         data = response.json()
         items = data.get('items', [])
         return items
     except Exception as e:
         return []
+
+def _load_env():
+    """Minimal .env reader so MONGO_URI works without extra deps."""
+    env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+def fetch_history_from_db():
+    """All stored draws from MongoDB (drawhistories collection)."""
+    _load_env()
+    uri = os.getenv("MONGO_URI")
+    if not uri:
+        return []
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(uri, serverSelectionTimeoutMS=8000)
+        db = client.get_default_database()
+        rows = list(db.drawhistories.find({}, {'_id': 0, 'date': 1, 'draw_name': 1, 'first_ticket': 1, 'draw_code': 1, 'prizes': 1}))
+        client.close()
+        return [{'draw_date': r['date'], 'draw_name': r['draw_name'], 'first_ticket': r['first_ticket'],
+                 'draw_code': r.get('draw_code', ''), 'prizes': r.get('prizes') or {}} for r in rows]
+    except Exception as e:
+        print(f"MongoDB load failed: {e}", file=sys.stderr)
+        return []
+
+def _normalize_lottery_name(name):
+    s = str(name or '').upper().strip()
+    for base in ('KARUNYA PLUS', 'STHREE SAKTHI', 'SUVARNA KERALAM', 'DHANALEKSHMI', 'BHAGYATHARA', 'SAMRUDHI', 'KARUNYA', 'WIN WIN', 'FIFTY FIFTY', 'AKSHAYA', 'NIRMAL'):
+        if base in s:
+            return base
+    return s
+
+def fetch_all_history():
+    """DB history + latest API items, de-duplicated on normalized date."""
+    merged = {}
+    for it in fetch_history_from_db() + fetch_history(1000):
+        d = str(it.get('draw_date') or '')[:10]
+        name = _normalize_lottery_name(it.get('draw_name'))
+        if d and (it.get('first_ticket') or it.get('mc')):
+            prev = merged.get(d)
+            # Prefer record that has prizes breakdown
+            if not prev or (it.get('prizes') and not prev.get('prizes')):
+                merged[d] = {**it, 'draw_date': d, 'draw_name': name or it.get('draw_name')}
+    if not merged:
+        csv_path = os.path.join(os.path.dirname(__file__), 'data', 'history.csv')
+        if os.path.exists(csv_path):
+            try:
+                cdf = pd.read_csv(csv_path)
+                for _, r in cdf.iterrows():
+                    d = str(r['date'])[:10]
+                    merged[d] = {
+                        'draw_date': d,
+                        'draw_name': _normalize_lottery_name(r.get('lottery', '')),
+                        'first_ticket': str(int(r['full_number'])).zfill(6),
+                        'draw_code': '',
+                        'prizes': {},
+                    }
+            except Exception:
+                pass
+    return list(merged.values())
 
 def process_data(items):
     processed = []
@@ -88,7 +153,7 @@ def process_data(items):
 
 if __name__ == "__main__":
     os.makedirs('python/data', exist_ok=True)
-    history_items = fetch_history(1000)
+    history_items = fetch_all_history()
     if history_items:
         df = process_data(history_items)
         df.to_csv('python/data/history.csv', index=False)

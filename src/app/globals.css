@@ -23,12 +23,54 @@
   --radius: 0.75rem;
 }
 
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-outfit: var(--font-outfit), var(--font-inter), sans-serif;
+  --radius-lg: var(--radius);
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings:
     "rlig" 1,
     "calt" 1;
+}
+
+/* Entrance animation utilities used across pages (animate-in fade-in slide-in-from-bottom-4) */
+@keyframes klot-enter {
+  from { opacity: var(--klot-enter-opacity, 1); transform: translateY(var(--klot-enter-y, 0)); }
+}
+@utility animate-in {
+  animation: klot-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@utility fade-in {
+  --klot-enter-opacity: 0;
+}
+@utility slide-in-from-bottom-4 {
+  --klot-enter-y: 1rem;
+}
+@utility scale-102 {
+  scale: 1.02;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-in { animation: none; }
 }
 
 .glass {
